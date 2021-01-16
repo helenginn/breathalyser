@@ -24,22 +24,20 @@ StructureView::StructureView(QWidget *parent) : SlipGL(parent)
 {
 	_centreSet = false;
 	setBackground(1, 1, 1, 1);
+	setZFar(1000.);
 }
 
 void StructureView::addEnsemble(Ensemble *e)
 {
 	e->repopulate();
+
 	addObject(e, false);
 	
 	if (!_centreSet)
 	{
-		vec3 centre = e->centroid();
+		vec3 centre = e->averagePos();
 		focusOnPosition(centre);
 		_centreSet = true;
 	}
 }
 
-void StructureView::clearEnsembles()
-{
-	clearObjects();
-}

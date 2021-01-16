@@ -40,11 +40,13 @@ moc_files = qt5.preprocess(moc_headers : [
 		moc_extra_arguments: ['-DMAKES_MY_MOC_HEADER_COMPILE'])
 
 executable('breathalyser', gen_src, moc_files,
+'src/DiffDisplay.cpp', 
+'src/Difference.cpp', 
 'src/Ensemble.cpp', 
 'src/LoadStructure.cpp', 
 'src/Main.cpp', 
 'src/StructureView.cpp', 
 'src/main.cpp', 
 cpp_args: ['-std=c++11'], 
-dependencies : [ helencore_dep, helen3d_dep, qt5_dep, dep_gl, png_dep, dep_vag, dep_vgeom, dep_ccp4, dep_c4x ], install: true)
+dependencies : [ helencore_dep, helen3d_dep, qt5_dep, dep_gl, png_dep, dep_vag, dep_vgeom, dep_ccp4, dep_c4x, boost_dep ], install: true)
 

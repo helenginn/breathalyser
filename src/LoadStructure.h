@@ -22,6 +22,7 @@
 #include <QMainWindow>
 
 class QLineEdit;
+class QCheckBox;
 class Main;
 
 class LoadStructure : public QMainWindow
@@ -30,16 +31,14 @@ Q_OBJECT
 public:
 	LoadStructure(QWidget *parent = NULL);
 
-	void setMain(Main *m)
-	{
-		_main = m;
-	}
+	void setMain(Main *m);
 
 public slots:
 	void choosePDB();
 	void loadPDB();
 private:
 	QLineEdit *_pdbLine;
+	QCheckBox *_makeRef;
 	Main *_main;
 
 };

@@ -22,26 +22,66 @@
 #include <QTreeWidgetItem>
 #include <h3dsrc/SlipObject.h>
 
-class QuickAtoms;
+/******************** Crystal definition ***************************/
+namespace Vagabond
+{
+	class Crystal;
+}
+
+#define ToCrystalPtr(a) (boost::static_pointer_cast<Vagabond::Crystal>((a)))
+typedef boost::shared_ptr<Vagabond::Crystal> CrystalPtr;
+typedef boost::weak_ptr<Vagabond::Crystal> CrystalWkr;
+
+/****************** end Crystal definition *************************/
 
 class Ensemble : public QTreeWidgetItem, public SlipObject
 {
 public:
-	Ensemble(Ensemble *parent, QuickAtoms *qa);
+	Ensemble(Ensemble *parent, CrystalPtr c);
 	
 	void setName(std::string name);
-
-	QuickAtoms *getQuickAtoms()
+	
+	std::string name()
 	{
-		return _qa;
+		return _name;
+	}
+	
+	size_t chainCount()
+	{
+		return _chains.size();
+	}
+	
+	std::string chain(int i)
+	{
+		return _chains[i];
+	}
+
+	CrystalPtr crystal()
+	{
+		return _crystal;
+	}
+	
+	void setReference(bool ref)
+	{
+		_isReference = ref;
+		updateText();
 	}
 
 	void addCAlpha(vec3 point);
 	void repopulate();
-private:
-	QuickAtoms *_qa;
+	void updateText();
+	vec3 averagePos();
 
+	virtual void render(SlipGL *gl);
+	std::string generateSequence(std::string chain);
+private:
+	void findChains();
+	void convertToBezier();
+	CrystalPtr _crystal;
+
+	bool _isReference;
 	std::string _name;
+	std::vector<std::string> _chains;
 };
 
 #endif

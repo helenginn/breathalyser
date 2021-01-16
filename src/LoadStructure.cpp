@@ -22,29 +22,31 @@
 
 #include <QLabel>
 #include <QLineEdit>
+#include <QCheckBox>
 #include <QPushButton>
 #include <hcsrc/FileReader.h>
 #include <h3dsrc/Dialogue.h>
 #include <libsrc/Multistate.h>
 #include <libsrc/PDBReader.h>
-#include <c4xsrc/QuickAtoms.h>
 
 LoadStructure::LoadStructure(QWidget *parent) : QMainWindow(parent)
 {
 	setGeometry(500, 300, 540, 400);
 	show();
 
+	int height = 20;
+
 	QLabel *l = new QLabel("PDB file:", this);
-	l->setGeometry(20, 20, 100, 30);
+	l->setGeometry(20, height, 100, 30);
 	l->show();
 	
 	QLineEdit *e = new QLineEdit(this);
-	e->setGeometry(120, 20, 300, 30);
+	e->setGeometry(120, height, 300, 30);
 	e->show();
 	_pdbLine = e;
 	
 	QPushButton *b = new QPushButton("Choose...", this);
-	b->setGeometry(420, 20, 100, 30);
+	b->setGeometry(420, height, 100, 30);
 	b->show();
 	connect(b, &QPushButton::clicked, this, &LoadStructure::choosePDB);
 	
@@ -57,9 +59,25 @@ LoadStructure::LoadStructure(QWidget *parent) : QMainWindow(parent)
 	b = new QPushButton("Done", this);
 	b->setGeometry(420, 350, 100, 30);
 	b->show();
+	
+	height += 30;
+	
+	_makeRef = new QCheckBox(this);
+	_makeRef->setGeometry(20, height, 30, 30);
+	_makeRef->show();
+	
+	l = new QLabel("Make reference structure", this);
+	l->setGeometry(60, height, 300, 30);
+	l->show();
 
 	connect(b, &QPushButton::clicked, this, &LoadStructure::hide);
 	connect(b, &QPushButton::clicked, this, &LoadStructure::deleteLater);
+}
+
+void LoadStructure::setMain(Main *m)
+{
+	_main = m;
+	_makeRef->setChecked(_main->ensembleCount() == 0);
 }
 
 void LoadStructure::choosePDB()
@@ -78,8 +96,7 @@ void LoadStructure::loadPDB()
 	ms.ignoreAtomsExcept("CA");
 	ms.process();
 	
-	QuickAtoms *master = new QuickAtoms(NULL);
-	Ensemble *top = new Ensemble(NULL, master);
+	Ensemble *top = new Ensemble(NULL, CrystalPtr());
 	top->setName(name);
 	
 	if (ms.crystalCount() == 0)
@@ -91,13 +108,7 @@ void LoadStructure::loadPDB()
 		
 		if (crystal)
 		{
-			delete master;
-			delete top;
-
-			QuickAtoms *qa = new QuickAtoms(crystal);
-			qa->fetchAtoms();
-			master = qa;
-			top = new Ensemble(NULL, master);
+			top = new Ensemble(NULL, crystal);
 			top->setName(name);
 		}
 	}
@@ -105,18 +116,18 @@ void LoadStructure::loadPDB()
 	for (size_t i = 0; i < ms.crystalCount(); i++)
 	{
 		CrystalPtr crystal = ms.crystal(i);
-		QuickAtoms *qa = new QuickAtoms(crystal);
-		qa->fetchAtoms();
-		Ensemble *conformer = new Ensemble(top, qa);
-		master->addAtomsFrom(qa);
+		Ensemble *conformer = new Ensemble(top, crystal);
 		conformer->setName(name + "_" + i_to_str(i));
 	}
 
-	if (ms.crystalCount() > 1)
-	{
-		master->divideThrough();
-	}
 	_main->receiveEnsemble(top);
+	
+	if (_makeRef->isChecked())
+	{
+		_main->makeReference(top);
+	}
+
+	_makeRef->setChecked(_main->ensembleCount() == 0);
 
 	_pdbLine->setText("");
 }

@@ -16,23 +16,27 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__structureview__
-#define __breathalyser__structureview__
+#include "DiffDisplay.h"
+#include "Difference.h"
 
-#include <QObject>
-#include <h3dsrc/SlipGL.h>
-
-class Ensemble;
-
-class StructureView : public SlipGL
+DiffDisplay::DiffDisplay(QWidget *parent, Difference *diff) : QLabel(parent)
 {
-public:
-	StructureView(QWidget *parent);
-	void addEnsemble(Ensemble *e);
-protected:
-private:
-	bool _centreSet;
+	_diff = diff;
+}
 
-};
+void DiffDisplay::changeDifference(Difference *diff)
+{
+	if (diff != NULL)
+	{
+		_diff = diff;
+	}
+	
+	if (_diff == NULL)
+	{
+		return;
+	}
 
-#endif
+	QImage i = diff->scaled(width(), height(), Qt::IgnoreAspectRatio);
+	setPixmap(QPixmap::fromImage(i));
+
+}

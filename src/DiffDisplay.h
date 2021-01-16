@@ -16,52 +16,23 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__main__
-#define __breathalyser__main__
+#ifndef __breathalyser__diffdisplay__
+#define __breathalyser__diffdisplay__
 
-#include <QMainWindow>
-#include <QTreeWidget>
+#include <QLabel>
 
-class DiffDisplay;
-class Ensemble;
-class StructureView;
+class Difference;
 
-class Main : public QMainWindow
+class DiffDisplay : public QLabel
 {
-Q_OBJECT
 public:
-	Main(QWidget *parent = NULL);
-	
-	int ensembleCount()
-	{
-		return _pdbTree->topLevelItemCount();
-	}
-	
-	Ensemble *ensemble(int i);
+	DiffDisplay(QWidget *parent, Difference *diff);
 
-	void receiveEnsemble(Ensemble *e);
+	void changeDifference(Difference *diff = NULL);
 	
-	void makeReference(Ensemble *e);
-
-public slots:
-	void loadStructures();
-	void setChosenAsReference();
-	void clickedStructure();
-	void clickedDifference();
-	void structureMenu(const QPoint &p);
-	void makeDifference();
-protected:
-	virtual void resizeEvent(QResizeEvent *e);
 private:
-	void makeMenu();
-	QTreeWidget *_pdbTree;
-	QTreeWidget *_diffTree;
-	StructureView *_view;
-	DiffDisplay *_diff;
-	
-	Ensemble *_ref;
+	Difference *_diff;
 
 };
-
 
 #endif

@@ -16,52 +16,42 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__main__
-#define __breathalyser__main__
+#ifndef __breathalyser__difference__
+#define __breathalyser__difference__
 
-#include <QMainWindow>
-#include <QTreeWidget>
+#include <QImage>
+#include <QTreeWidgetItem>
+#include <hcsrc/vec3.h>
+#include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
 
-class DiffDisplay;
 class Ensemble;
-class StructureView;
 
-class Main : public QMainWindow
+/****************** Atom definition ********************/
+
+class Atom;
+typedef boost::shared_ptr<Atom> AtomPtr;
+typedef boost::weak_ptr<Atom> AtomWkr;
+
+/****************** End atom definition ********************/
+
+typedef std::pair<AtomPtr, AtomPtr> AtomCouple;
+
+class Difference : public QTreeWidgetItem, public QImage
 {
-Q_OBJECT
 public:
-	Main(QWidget *parent = NULL);
-	
-	int ensembleCount()
-	{
-		return _pdbTree->topLevelItemCount();
-	}
-	
-	Ensemble *ensemble(int i);
+	Difference(int w, int h);
 
-	void receiveEnsemble(Ensemble *e);
-	
-	void makeReference(Ensemble *e);
+	void setEnsembles(Ensemble *a, Ensemble *b);
 
-public slots:
-	void loadStructures();
-	void setChosenAsReference();
-	void clickedStructure();
-	void clickedDifference();
-	void structureMenu(const QPoint &p);
-	void makeDifference();
-protected:
-	virtual void resizeEvent(QResizeEvent *e);
+	void populate();
 private:
-	void makeMenu();
-	QTreeWidget *_pdbTree;
-	QTreeWidget *_diffTree;
-	StructureView *_view;
-	DiffDisplay *_diff;
+	void findCommonAtoms();
+
+	Ensemble *_ea;
+	Ensemble *_eb;
 	
-	Ensemble *_ref;
-
+	std::vector<AtomCouple> _atomCouples;
 };
-
 
 #endif
