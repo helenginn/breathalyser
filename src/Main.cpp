@@ -18,43 +18,72 @@
 
 #include <QMenu>
 #include <QMenuBar>
+#include <QTabWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <iostream>
 
 #include "DiffDisplay.h"
 #include "Difference.h"
 #include "Main.h"
+#include "MyDictator.h"
 #include "LoadStructure.h"
 #include "Ensemble.h"
 #include "StructureView.h"
 
 Main::Main(QWidget *parent) : QMainWindow(parent)
 {
+	makeMenu();
 	setGeometry(0, 0, 1300, 900);
 	
 	_ref = NULL;
 
-	_pdbTree = new QTreeWidget(this);
+	QWidget *window = new QWidget();
+	QHBoxLayout *layout = new QHBoxLayout();
+	window->setLayout(layout);
+
+	QVBoxLayout *treeout = new QVBoxLayout();
+
+	_pdbTree = new QTreeWidget(window);
 	_pdbTree->show();
 	_pdbTree->setHeaderLabel("Structures");
 	_pdbTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	_pdbTree->setContextMenuPolicy(Qt::CustomContextMenu);
+	_pdbTree->setMaximumSize(QSize(250, 500));
+
+	_diffTree = new QTreeWidget(window);
+	_diffTree->show();
+	_diffTree->setHeaderLabel("Distance matrices");
+	_diffTree->setMaximumSize(QSize(250, 500));
+
+	treeout->addWidget(_pdbTree);
+	treeout->addWidget(_diffTree);
+	layout->addItem(treeout);
+
+	_tabs = new QTabWidget(window);
+	layout->addWidget(_tabs);
+	
+	setCentralWidget(window);
+
+	_view = new StructureView(NULL);
+	_tabs->addTab(_view, "Structure view");
+
+	_diff = new DiffDisplay(NULL, NULL);
+	_diff->setMain(this);
+	_tabs->addTab(_diff, "Difference view");
+
+	_couple = new StructureView(NULL);
+	_tabs->addTab(_couple, "Couple view");
+
 	connect(_pdbTree, &QTreeWidget::customContextMenuRequested,
 	        this, &Main::structureMenu);
 	
 	connect(_pdbTree, &QTreeWidget::itemSelectionChanged,
 	        this, &Main::clickedStructure);
-
-	_diffTree = new QTreeWidget(this);
-	_diffTree->show();
-	_diffTree->setHeaderLabel("Distance matrices");
 	
 	connect(_diffTree, &QTreeWidget::currentItemChanged,
 	        this, &Main::clickedDifference);
 
-	_view = new StructureView(this);
-	_view->show();
-	_diff = new DiffDisplay(this, NULL);
-	makeMenu();
 	show();
 }
 
@@ -69,15 +98,6 @@ void Main::makeMenu()
 
 void Main::resizeEvent(QResizeEvent *e)
 {
-	int x = 0;
-	int y = menuBar()->height();
-	int w = width();
-	int h = height() - y;
-
-	_pdbTree->setGeometry(x, y, 250, h / 2);
-	_diffTree->setGeometry(x, y + h / 2, 250, h / 2);
-	_view->setGeometry(x + 250, y, w - 500, h - 100);
-	_diff->setGeometry(x + 250, y, w - 500, h - 100);
 	_diff->changeDifference();
 }
 
@@ -85,6 +105,7 @@ void Main::loadStructures()
 {
 	LoadStructure *load = new LoadStructure(NULL);
 	load->setMain(this);
+	load->show();
 }
 
 void Main::receiveEnsemble(Ensemble *e)
@@ -101,8 +122,6 @@ void Main::clickedStructure()
 {
 	QList<QTreeWidgetItem *> list = _pdbTree->selectedItems();
 	
-	_diff->hide();
-	_view->show();
 	_view->clearObjects();
 
 	for (int i = 0; i < list.size(); i++)
@@ -130,10 +149,8 @@ void Main::clickedDifference()
 		return;
 	}
 	
-	_view->hide();
-	_diff->show();
+	d->toCoupleView(_couple);
 	_diff->changeDifference(d);
-
 }
 
 void Main::structureMenu(const QPoint &p)
@@ -184,10 +201,14 @@ void Main::makeDifference()
 	}
 	
 	Difference *diff = new Difference(1000, 1000);
+	diff->setMain(this);
 	diff->setEnsembles(e1, e2);
 	diff->populate();
+	_diff->changeDifference(diff);
 	_diffTree->addTopLevelItem(diff);
 	_diffTree->setCurrentItem(diff);
+	
+	_tabs->setCurrentWidget(_diff);
 }
 
 Ensemble *Main::ensemble(int i)
@@ -218,3 +239,17 @@ void Main::setChosenAsReference()
 	Ensemble *e = dynamic_cast<Ensemble *>(list[0]);
 	makeReference(e);
 }
+
+void Main::setCommandLineArgs(int argc, char *argv[])
+{
+	for (int i = 1; i < argc; i++)
+	{
+		std::string str = argv[i];
+		_args.push_back(str);
+	}
+
+	_dictator = new MyDictator(this);
+	_dictator->setArgs(_args);
+	_dictator->run();
+}
+

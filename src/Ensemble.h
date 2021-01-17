@@ -73,7 +73,10 @@ public:
 	vec3 averagePos();
 
 	virtual void render(SlipGL *gl);
+
+	void minMaxResidues(std::string ch, int *min, int *max);
 	std::string generateSequence(std::string chain);
+	std::string findMatchingChain(std::string ch, Ensemble *other);
 private:
 	void findChains();
 	void convertToBezier();

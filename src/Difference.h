@@ -25,7 +25,11 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
 
+class StructureView;
+class DiffDisplay;
 class Ensemble;
+class Segment;
+class Main;
 
 /****************** Atom definition ********************/
 
@@ -36,22 +40,64 @@ typedef boost::weak_ptr<Atom> AtomWkr;
 /****************** End atom definition ********************/
 
 typedef std::pair<AtomPtr, AtomPtr> AtomCouple;
+typedef std::pair<int, int> IntPair;
 
-class Difference : public QTreeWidgetItem, public QImage
+class Difference : public QObject, public QTreeWidgetItem, public QImage
 {
+Q_OBJECT
 public:
 	Difference(int w, int h);
 
+	void toCoupleView(StructureView *view);
 	void setEnsembles(Ensemble *a, Ensemble *b);
+	void setMain(Main *m)
+	{
+		_main = m;
+	}
+	
+	void setDisplay(DiffDisplay *display)
+	{
+		_display = display;
+	}
+	
+	size_t atomCount()
+	{
+		return _atoms.size();
+	}
+	
+	size_t segmentCount()
+	{
+		return _segments.size();
+	}
+	
+	Segment *segment(int i)
+	{
+		return _segments[i];
+	}
 
-	void populate();
+	void populate(bool force = false);
+public slots:
+	void thresholdChanged(int val);
+	void calculate();
+
 private:
 	void findCommonAtoms();
+	void findSegments(double val);
+	void loadSegmentsToView();
 
 	Ensemble *_ea;
 	Ensemble *_eb;
 	
+	Main *_main;
+
+	DiffDisplay *_display;
+	StructureView *_coupleView;
+	std::vector<AtomPtr> _atoms;
 	std::vector<AtomCouple> _atomCouples;
+	std::vector<Segment *> _segments;
+	std::map<AtomCouple, double> _vals;
+	double _max;
+	bool _drawn;
 };
 
 #endif

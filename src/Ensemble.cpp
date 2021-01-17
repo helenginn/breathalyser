@@ -23,6 +23,7 @@
 #include <libsrc/Monomer.h>
 #include <libsrc/Atom.h>
 #include <libinfo/GeomTable.h>
+#include <hcsrc/Blast.h>
 
 Ensemble::Ensemble(Ensemble *parent, CrystalPtr c) : QTreeWidgetItem(parent),
 SlipObject()
@@ -136,8 +137,35 @@ void Ensemble::findChains()
 
 		_chains.push_back(first);
 		std::string seq = generateSequence(first);
-		std::cout << "Chain " << first << ":" << std::endl;
-		std::cout << seq << std::endl;
+	}
+}
+
+void Ensemble::minMaxResidues(std::string ch, int *min, int *max)
+{
+	*min = INT_MAX;
+	*max = -INT_MAX;
+
+	for (size_t i = 0; i < _crystal->moleculeCount(); i++)
+	{
+		MoleculePtr m = _crystal->molecule(i);
+		
+		if (!m->isPolymer())
+		{
+			continue;
+		}
+
+		if (m->getChainID().substr(0, ch.length()) == ch)
+		{
+			PolymerPtr p = ToPolymerPtr(m);
+			if (p->monomerBegin() < *min)
+			{
+				*min = p->monomerBegin();
+			}
+			else if (p->monomerEnd() > *max)
+			{
+				*max = p->monomerEnd();
+			}
+		}
 	}
 }
 
@@ -352,4 +380,42 @@ void Ensemble::render(SlipGL *gl)
 	}
 
 	SlipObject::render(gl);
+}
+
+std::string Ensemble::findMatchingChain(std::string ch, Ensemble *other)
+{
+	std::string seq = generateSequence(ch);
+	int best_mut = INT_MAX;
+	std::string best_ch = "";
+
+	for (size_t i = 0; i < other->chainCount(); i++)
+	{
+		std::string other_ch = other->chain(i);
+		int muts, dels;
+		std::string otherseq = other->generateSequence(other_ch);
+		compare_sequences(seq, otherseq, &muts, &dels);
+		
+		if (muts == 0 && dels == 0)
+		{
+			// can't fault that
+			return other_ch;
+		}
+		else if (muts < best_mut)
+		{
+			best_ch = other_ch;
+			best_mut = muts;
+		}
+	}
+	
+	if (best_mut > (int)seq.length() / 2)
+	{
+		std::cout << "Warning: poor identity with best sequence!" << std::endl;
+	}
+	
+	std::cout << "Comparing " << other->name() << " to " 
+	<< name() << std::endl;
+	std::cout << "Best match for chain " << ch << " is " 
+	<< best_ch << std::endl;
+
+	return best_ch;
 }

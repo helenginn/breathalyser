@@ -16,32 +16,22 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__loadstructure__
-#define __breathalyser__loadstructure__
+#ifndef __breathalyser__myDictator__
+#define __breathalyser__myDictator__
 
-#include <QMainWindow>
+#include <h3dsrc/Dictator.h>
 
-class QLineEdit;
-class QCheckBox;
 class Main;
 
-class LoadStructure : public QMainWindow
+class MyDictator : public Dictator
 {
-Q_OBJECT
 public:
-	LoadStructure(QWidget *parent = NULL);
+	MyDictator(Main *main);
 
-	void setMain(Main *m);
-
-	void loadPDB(std::string filename);
-public slots:
-	void choosePDB();
-	void loadChosenPDB();
+protected:
+	virtual bool processRequest(std::string first, std::string last);
 private:
-	QLineEdit *_pdbLine;
-	QCheckBox *_makeRef;
 	Main *_main;
-
 };
 
 #endif

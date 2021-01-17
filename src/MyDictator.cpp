@@ -16,32 +16,29 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__loadstructure__
-#define __breathalyser__loadstructure__
+#include "MyDictator.h"
+#include "LoadStructure.h"
+#include <iostream>
+#include <hcsrc/FileReader.h>
 
-#include <QMainWindow>
-
-class QLineEdit;
-class QCheckBox;
-class Main;
-
-class LoadStructure : public QMainWindow
+MyDictator::MyDictator(Main *main) : Dictator()
 {
-Q_OBJECT
-public:
-	LoadStructure(QWidget *parent = NULL);
+	_main = main;
+}
 
-	void setMain(Main *m);
+bool MyDictator::processRequest(std::string first, std::string last)
+{
+	if (first == "load-pdb")
+	{
+		std::vector<std::string> pdbs = split(last, ',');
+		LoadStructure ls;
+		ls.setMain(_main);
+		
+		for (size_t i = 0; i < pdbs.size(); i++)
+		{
+			ls.loadPDB(pdbs[i]);
+		}
+	}
 
-	void loadPDB(std::string filename);
-public slots:
-	void choosePDB();
-	void loadChosenPDB();
-private:
-	QLineEdit *_pdbLine;
-	QCheckBox *_makeRef;
-	Main *_main;
-
-};
-
-#endif
+	return true;
+}

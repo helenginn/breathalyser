@@ -29,6 +29,7 @@ class StructureView : public SlipGL
 public:
 	StructureView(QWidget *parent);
 	void addEnsemble(Ensemble *e);
+	void clearSegments();
 protected:
 private:
 	bool _centreSet;

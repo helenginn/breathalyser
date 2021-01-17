@@ -22,7 +22,9 @@
 #include <QMainWindow>
 #include <QTreeWidget>
 
+class MyDictator;
 class DiffDisplay;
+class QTabWidget;
 class Ensemble;
 class StructureView;
 
@@ -37,11 +39,27 @@ public:
 		return _pdbTree->topLevelItemCount();
 	}
 	
+	Ensemble *reference()
+	{
+		return _ref;
+	}
+	
 	Ensemble *ensemble(int i);
+	
+	QTabWidget *tabs()
+	{
+		return _tabs;
+	}
+	
+	StructureView *coupleView()
+	{
+		return _couple;
+	}
 
 	void receiveEnsemble(Ensemble *e);
 	
 	void makeReference(Ensemble *e);
+	void setCommandLineArgs(int argc, char *argv[]);
 
 public slots:
 	void loadStructures();
@@ -56,11 +74,14 @@ private:
 	void makeMenu();
 	QTreeWidget *_pdbTree;
 	QTreeWidget *_diffTree;
+	QTabWidget *_tabs;
 	StructureView *_view;
+	StructureView *_couple;
 	DiffDisplay *_diff;
+	MyDictator *_dictator;
 	
 	Ensemble *_ref;
-
+	std::vector<std::string> _args;
 };
 
 

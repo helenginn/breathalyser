@@ -19,16 +19,23 @@
 #include <iostream>
 #include "StructureView.h"
 #include "Ensemble.h"
+#include "Segment.h"
 
 StructureView::StructureView(QWidget *parent) : SlipGL(parent)
 {
 	_centreSet = false;
 	setBackground(1, 1, 1, 1);
 	setZFar(1000.);
+	setFocusPolicy(Qt::ClickFocus);
 }
 
 void StructureView::addEnsemble(Ensemble *e)
 {
+	if (e == NULL)
+	{
+		return;
+	}
+
 	e->repopulate();
 
 	addObject(e, false);
@@ -41,3 +48,16 @@ void StructureView::addEnsemble(Ensemble *e)
 	}
 }
 
+void StructureView::clearSegments()
+{
+	for (size_t i = 0; i < _objects.size(); i++)
+	{
+		Segment *s = dynamic_cast<Segment *>(_objects[i]);
+		if (s)
+		{
+			_objects.erase(_objects.begin() + i);
+			i--;
+			std::cout << "Removed segment" << std::endl;
+		}
+	}
+}

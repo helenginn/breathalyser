@@ -32,7 +32,6 @@
 LoadStructure::LoadStructure(QWidget *parent) : QMainWindow(parent)
 {
 	setGeometry(500, 300, 540, 400);
-	show();
 
 	int height = 20;
 
@@ -54,7 +53,7 @@ LoadStructure::LoadStructure(QWidget *parent) : QMainWindow(parent)
 	b->setGeometry(310, 350, 100, 30);
 	b->show();
 
-	connect(b, &QPushButton::clicked, this, &LoadStructure::loadPDB);
+	connect(b, &QPushButton::clicked, this, &LoadStructure::loadChosenPDB);
 	
 	b = new QPushButton("Done", this);
 	b->setGeometry(420, 350, 100, 30);
@@ -88,9 +87,14 @@ void LoadStructure::choosePDB()
 	_pdbLine->setText(QString::fromStdString(filename));
 }
 
-void LoadStructure::loadPDB()
+void LoadStructure::loadChosenPDB()
 {
 	std::string pdb = _pdbLine->text().toStdString();
+	loadPDB(pdb);
+}
+
+void LoadStructure::loadPDB(std::string pdb)
+{
 	std::string name = getBaseFilename(pdb);
 	Multistate ms(pdb);
 	ms.ignoreAtomsExcept("CA");

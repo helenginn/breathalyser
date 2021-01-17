@@ -16,32 +16,33 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__loadstructure__
-#define __breathalyser__loadstructure__
+#ifndef __breathalyser__segment__
+#define __breathalyser__segment__
 
-#include <QMainWindow>
+#include <libsrc/AtomGroup.h>
+#include <h3dsrc/SlipObject.h>
+#include <QObject>
 
-class QLineEdit;
-class QCheckBox;
-class Main;
+class QThread;
 
-class LoadStructure : public QMainWindow
+class Segment : public QObject, public SlipObject, public AtomGroup
 {
 Q_OBJECT
 public:
-	LoadStructure(QWidget *parent = NULL);
+	Segment();
+	
+	void startEnd(int *min, int *max);
+	void populate();
 
-	void setMain(Main *m);
-
-	void loadPDB(std::string filename);
+	virtual void render(SlipGL *gl);
+signals:
+	void refine();
 public slots:
-	void choosePDB();
-	void loadChosenPDB();
-private:
-	QLineEdit *_pdbLine;
-	QCheckBox *_makeRef;
-	Main *_main;
+	void refineMesh();
+	void handleMesh();
 
+private:
+	QThread *_w;
 };
 
 #endif

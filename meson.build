@@ -33,9 +33,11 @@ gen_src = custom_target('commit-output',
 # Pre-processing by Qt5
 
 moc_files = qt5.preprocess(moc_headers : [
+'src/Difference.h', 
 'src/Ensemble.h', 
 'src/Main.h', 
 'src/LoadStructure.h', 
+'src/Segment.h', 
 ],
 		moc_extra_arguments: ['-DMAKES_MY_MOC_HEADER_COMPILE'])
 
@@ -45,6 +47,8 @@ executable('breathalyser', gen_src, moc_files,
 'src/Ensemble.cpp', 
 'src/LoadStructure.cpp', 
 'src/Main.cpp', 
+'src/MyDictator.cpp', 
+'src/Segment.cpp', 
 'src/StructureView.cpp', 
 'src/main.cpp', 
 cpp_args: ['-std=c++11'], 

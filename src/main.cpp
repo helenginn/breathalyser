@@ -16,6 +16,7 @@ int main(int argc, char * argv[])
 	std::cout << "Check version: " << CHECK_VERSION_COMMIT_ID << std::endl;
 	
 	Main main(NULL);
+	main.setCommandLineArgs(argc, argv);
 
 	int status = app.exec();
 	

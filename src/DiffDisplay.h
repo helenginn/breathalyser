@@ -19,20 +19,36 @@
 #ifndef __breathalyser__diffdisplay__
 #define __breathalyser__diffdisplay__
 
-#include <QLabel>
+#include <QWidget>
 
+class Main;
+class QLabel;
+class QSlider;
+class QPushButton;
 class Difference;
 
-class DiffDisplay : public QLabel
+class DiffDisplay : public QWidget
 {
 public:
 	DiffDisplay(QWidget *parent, Difference *diff);
 
 	void changeDifference(Difference *diff = NULL);
 	
+	Difference *difference()
+	{
+		return _diff;
+	}
+	
+	void setMain(Main *main)
+	{
+		_main = main;
+	}
 private:
+	Main *_main;
 	Difference *_diff;
-
+	QLabel *_label;
+	QSlider *_threshold;
+	QPushButton *_calculate;
 };
 
 #endif
