@@ -23,15 +23,21 @@
 #include <h3dsrc/SlipGL.h>
 
 class Ensemble;
+class Text;
 
 class StructureView : public SlipGL
 {
 public:
 	StructureView(QWidget *parent);
 	void addEnsemble(Ensemble *e);
-	void clearSegments();
+	
+	void setText(Text *text);
+	void addLabel(std::string string);
 protected:
+	virtual void initializeGL();
 private:
+	Text *_text;
+	vec3 _centre;
 	bool _centreSet;
 
 };

@@ -16,25 +16,33 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__myDictator__
-#define __breathalyser__myDictator__
+#ifndef __breathalyser__mutationwindow__
+#define __breathalyser__mutationwindow__
 
-#include <h3dsrc/Dictator.h>
+#include <QMainWindow>
 
+class QLineEdit;
 class Main;
 
-class MyDictator : public Dictator
+class MutationWindow : public QMainWindow
 {
+Q_OBJECT
 public:
-	MyDictator(Main *main);
+	MutationWindow(QWidget *parent);
 
-protected:
-	virtual bool processRequest(std::string first, std::string last);
+	void mutationWindow();
+
+	void setMain(Main *m)
+	{
+		_main = m;
+	}
+
+public slots:
+	void run();
 private:
 	Main *_main;
-	
-	int _start;
-	int _end;
+	QLineEdit *_mutLine;
+
 };
 
 #endif

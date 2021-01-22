@@ -20,7 +20,7 @@
 #include "Ensemble.h"
 #include "Difference.h"
 #include "DiffDisplay.h"
-#include "StructureView.h"
+#include "CoupleDisplay.h"
 #include "Main.h"
 #include <QPainter>
 #include <libsrc/Polymer.h>
@@ -35,16 +35,13 @@ Difference::Difference(int w, int h) : QImage(w + 1, h, QImage::Format_RGB32)
 	_max = 0;
 	_ea = NULL;
 	_eb = NULL;
-	_coupleView = NULL;
+	_coupleDisplay = NULL;
 }
 
-void Difference::toCoupleView(StructureView *view)
+void Difference::toCoupleDisplay(CoupleDisplay *view)
 {
-	_coupleView = view;
-	view->clearObjects();
-	
-	view->addEnsemble(_ea);
-	view->addEnsemble(_eb);
+	_coupleDisplay = view;
+	_coupleDisplay->setDifference(this);
 }
 
 void Difference::findCommonAtoms()
@@ -78,6 +75,8 @@ void Difference::findCommonAtoms()
 			if (bs.size() >= 1)
 			{
 				couple = std::make_pair(as[j], bs[0]);
+				_map[as[j]] = bs[0];
+				_map[bs[0]] = as[j];
 			}
 			else
 			{
@@ -137,9 +136,9 @@ void Difference::populate(bool force)
 				b2 = c2.second->getInitialPosition();
 			}
 			
-			vec3 diff = vec3_subtract_vec3(b1, a1);
+			vec3 diff = vec3_subtract_vec3(b1, b2);
 			double l1 = vec3_length(diff);
-			diff = vec3_subtract_vec3(b2, a2);
+			diff = vec3_subtract_vec3(a1, a2);
 			double l2 = vec3_length(diff);
 
 			double val = l2 - l1;
@@ -206,32 +205,86 @@ void Difference::populate(bool force)
 			                 box_size + 1, box_size + 1);
 		}
 	}
+
+	QColor c = QColor(0, 0, 0, 255);
+	QPen p = QPen(c);
+	p.setWidth(box_size);
+	QBrush b = QBrush(c, Qt::BDiagPattern);
+	painter.setPen(p);
+	painter.setBrush(b);
 	
-	for (size_t i = 0; i < _segments.size(); i++)
+	applySegmentsToEnsembles();
+	
+	for (size_t i = 0; i < _ea->segmentCount(); i++)
 	{
-		QColor c = QColor(0, 0, 0, 255);
-		QPen p = QPen(c);
-		p.setWidth(box_size);
-		QBrush b = QBrush(c, Qt::BDiagPattern);
-		painter.setPen(p);
-		painter.setBrush(b);
+		Segment *s = _ea->segment(i);
 		
-		AtomPtr first = _atomCouples[0].first;
-		std::string ch = first->getChainID().substr(0, 1);
-		int min, max;
-		_ea->minMaxResidues(ch, &min, &max);
-
-		int start, end;
-		_segments[i]->startEnd(&start, &end);
-		start -= min;
-		end -= min;
-		int size = end - start;
-
-		painter.drawRect(box_size * start, box_size * start,
-		                 box_size * size, box_size * size);
+		for (size_t j = 0; j < s->subCount(); j++)
+		{
+			for (size_t k = 0; k < s->subCount(); k++)
+			{
+				drawOnSegment(s->sub(j), s->sub(k), painter, box_size);
+			}
+		}
 	}
 	
 	_drawn = true;
+}
+
+void Difference::drawOnSegment(Segment *s, Segment *t, 
+                               QPainter &painter, double box_size)
+{
+
+	AtomPtr first = _atomCouples[0].first;
+	std::string ch = first->getChainID().substr(0, 1);
+	int min, max;
+	_ea->minMaxResidues(ch, &min, &max);
+
+	int ss, se;
+	s->startEnd(&ss, &se);
+	ss -= min;
+	se -= min;
+	int ssize = se - ss;
+	
+	painter.drawRect(box_size * ss, box_size * ss,
+	                 box_size * ssize, box_size * ssize);
+	
+	if (s == t)
+	{
+		return;
+	}
+
+	int ts, te;
+	t->startEnd(&ts, &te);
+	ts -= min;
+	te -= min;
+	int tsize = te - ts;
+	
+	painter.drawRect(box_size * ss, box_size * ts,
+	                 box_size * ssize, box_size * tsize);
+
+}
+
+void Difference::addSegments(Segment *seg_a, double threshold)
+{
+	Segment *seg_b = new Segment(this, threshold);
+
+	for (size_t i = 0; i < seg_a->atomCount(); i++)
+	{
+		AtomPtr a = seg_a->atom(i);
+		AtomPtr b = _map[a];
+		
+		if (b)
+		{
+			seg_b->addAtom(b);
+		}
+	}
+
+	seg_a->setSister(seg_b);
+	seg_b->setSister(seg_a);
+
+	_ea->addSegment(seg_a);
+	_eb->addSegment(seg_b);
 }
 
 void Difference::findSegments(double val)
@@ -246,82 +299,45 @@ void Difference::findSegments(double val)
 	double v = val;
 	double max = s->maximum();
 	v = v / max;
-	v = (1 - v);
 	v *= 5.0;
 
 	double real = v / _max;
 
-	Segment *seg = new Segment();
-	for (size_t i = 0; i < _segments.size(); i++)
-	{
-		delete _segments[i];
-	}
+	_ea->deleteSegments();
+	_eb->deleteSegments();
 
-	_segments.clear();
+	Segment *seg_a = new Segment(this, real);
 
 	AtomPtr start_atom;
 	for (size_t i = 0; i < _atoms.size(); i++)
 	{
 		AtomPtr a = _atoms[i];
-		bool ok = true;
 		
-		if (!a)
-		{
-			ok = false;
-		}
-		else if (a && seg->atomCount() == 0)
-		{
-			seg->addAtom(a);
-			start_atom = a;
-		}
-		else if (a && seg->atomCount() >= 1)
-		{
-			AtomPtr last = _atoms[i-1];
-			
-			if (last->getResidueNum() != a->getResidueNum() - 1)
-			{
-				ok = false;
-			}
-
-			for (size_t j = 0; j < seg->atomCount(); j++)
-			{
-				AtomPtr other = seg->atom(j);
-				AtomCouple c = std::make_pair(other, a);
-				if (!_vals.count(c))
-				{
-					ok = false;
-					break;
-				}
-				else
-				{
-					double val = _vals[c];
-					if (val > real || val != val)
-					{
-						ok = false;
-						break;
-					}
-				}
-			}
-		}
+		bool ok = seg_a->addAtomIfValid(a);
 		
-		if (ok == false || i == _atoms.size() - 1)
+		if (!ok || i == _atoms.size() - 1)
 		{
-			if (seg->atomCount() > 3)
+			if (seg_a->atomCount() >= 3)
 			{
-				_segments.push_back(seg);
-				seg = new Segment();
+				addSegments(seg_a, real);
+				seg_a = new Segment(this, real);
 			}
 			else
 			{
-				delete seg;
-				seg = new Segment();
+				delete seg_a;
+				seg_a = new Segment(this, real);
 			}
 		}
-		else if (ok)
-		{
-			seg->addAtom(a);
-		}
 	}
+
+	_aSegments = _ea->segments();
+	_bSegments = _eb->segments();
+}
+
+void Difference::applySegmentsToEnsembles()
+{
+	_ea->setSegments(_aSegments);
+	_eb->setSegments(_bSegments);
 
 }
 
@@ -332,27 +348,115 @@ void Difference::thresholdChanged(int val)
 	_display->changeDifference(NULL);
 }
 
-void Difference::loadSegmentsToView()
+void Difference::calculate()
 {
-	if (!_coupleView)
+	for (size_t i = 0; i < _ea->segmentCount(); i++)
 	{
-		return;
-	}
-
-	_coupleView->clearSegments();
-
-	for (size_t i = 0; i < segmentCount(); i++)
-	{
-		_coupleView->addObject(segment(i), false);
+		_ea->segment(i)->populate();
+		_eb->segment(i)->populate();
+		_ea->segment(i)->forceSisterColour();
+		_ea->segment(i)->refineMesh();
+		_eb->segment(i)->refineMesh();
 	}
 }
 
-void Difference::calculate()
+double Difference::valueBetween(AtomPtr a, AtomPtr b)
 {
-	loadSegmentsToView();
-
-	for (size_t i = 0; i < segmentCount(); i++)
+	AtomCouple c = std::make_pair(a, b);
+	if (!_vals.count(c))
 	{
-		segment(i)->populate();
+		return NAN;
 	}
+	
+	return _vals[c];
+}
+
+bool Difference::closerSegmentThan(Segment *s, Segment *t)
+{
+	vec3 as = s->AtomGroup::centroid();
+	vec3 at = t->AtomGroup::centroid();
+	vec3 targ_diff = vec3_subtract_vec3(as, at);
+	double tl = vec3_length(targ_diff);
+
+	for (size_t i = 0; i < _ea->segmentCount(); i++)
+	{
+		Segment *a = _ea->segment(i);
+
+		if (a == s || a == t)
+		{
+			continue;
+		}
+		
+		vec3 ac = a->AtomGroup::centroid();
+		vec3 t1 = vec3_subtract_vec3(ac, as);
+		vec3 t2 = vec3_subtract_vec3(ac, at);
+		
+		if (vec3_length(t1) < tl || vec3_length(t2) < tl)
+		{
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+void Difference::tryMerges()
+{
+	double mult = 2.0;
+	applySegmentsToEnsembles();
+	for (size_t i = 0; i < _ea->segmentCount() - 1; i++)
+	{
+		Segment *a1 = _ea->segment(i);
+
+		for (size_t j = i + 1; j < _ea->segmentCount(); j++)
+		{
+			Segment *a2 = _ea->segment(j);
+
+			if (closerSegmentThan(a1, a2))
+			{
+				continue;
+			}
+
+			if (!a1->enoughCommonGround(a2, mult))
+			{
+				continue;
+			}
+
+			std::cout << "Combined two segments " << i << 
+			" and " << j << std::endl;
+
+			Segment *b1 = _eb->segment(i);
+			Segment *b2 = _eb->segment(j);
+
+			Segment *aMaster = Segment::segmentFrom(a1, a2, mult);
+			Segment *bMaster = Segment::segmentFrom(b1, b2, mult);
+
+			aMaster->setSister(bMaster);
+			bMaster->setSister(aMaster);
+
+			_ea->removeSegment(i);
+			_eb->removeSegment(i);
+			i--;
+			j--;
+			_ea->removeSegment(j);
+			_eb->removeSegment(j);
+			j--;
+
+			_ea->addSegment(aMaster);
+			_eb->addSegment(bMaster);
+			break;
+		}
+	}
+
+	_aSegments = _ea->segments();
+	_bSegments = _eb->segments();
+
+	calculate();
+	populate();
+	_display->changeDifference(NULL);
+}
+
+AtomPtr Difference::getPartnerAtom(AtomPtr a)
+{
+	return _map[a];
 }

@@ -16,25 +16,35 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__myDictator__
-#define __breathalyser__myDictator__
+#ifndef __breathalyser__loadfastas__
+#define __breathalyser__loadfastas__
 
-#include <h3dsrc/Dictator.h>
+#include <QMainWindow>
 
 class Main;
+class QLineEdit;
+class QCheckBox;
 
-class MyDictator : public Dictator
+class LoadFastas : public QMainWindow
 {
+Q_OBJECT
 public:
-	MyDictator(Main *main);
+	LoadFastas(QWidget *parent = NULL);
+	void setMain(Main *m);
 
-protected:
-	virtual bool processRequest(std::string first, std::string last);
+	void setProtein(bool p);
+	void loadFastas(std::string filename, int start, int end);
+	void loadSequence(std::string filename, int start, int end, 
+	                  bool isProtein);
+public slots:
+	void loadChosenFasta();
+	void chooseFasta();
 private:
-	Main *_main;
+	QLineEdit *_fastaLine;
+	QLineEdit *_rangeLine;
+	QCheckBox *_isProtein;
 	
-	int _start;
-	int _end;
+	Main *_main;
 };
 
 #endif

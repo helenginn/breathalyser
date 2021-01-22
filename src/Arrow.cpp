@@ -16,25 +16,39 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__myDictator__
-#define __breathalyser__myDictator__
+#include "gArrow.h"
+#include "vArrow.h"
+#include "fArrow.h"
+#include "Arrow.h"
+#include "Segment.h"
 
-#include <h3dsrc/Dictator.h>
-
-class Main;
-
-class MyDictator : public Dictator
+Arrow::Arrow(Segment *parent)
 {
-public:
-	MyDictator(Main *main);
+	_segment = parent;
+	_renderType = GL_LINES;
+	_gString = Arrow_gsh();
+	_fString = Arrow_fsh();
+	_vString = Arrow_vsh();
+	this->SlipObject::setName("Arrow");
+}
 
-protected:
-	virtual bool processRequest(std::string first, std::string last);
-private:
-	Main *_main;
+void Arrow::populate()
+{
+	vec3 start, dir;
+	_segment->motionComparedTo(_segment->sister(), &start, &dir);
+
+	Helen3D::Vertex v;
+	memset(&v, '\0', sizeof(Helen3D::Vertex));
+	v.color[3] = 1.;
+
+	pos_from_vec(&v.pos[0], start);
+	_vertices.push_back(v);
+
+	pos_from_vec(&v.pos[0], dir);
+	_vertices.push_back(v);
 	
-	int _start;
-	int _end;
-};
+	_indices.push_back(0);
+	_indices.push_back(1);
+}
 
-#endif
+

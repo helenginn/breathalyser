@@ -24,8 +24,13 @@
 
 class MyDictator;
 class DiffDisplay;
+class CoupleDisplay;
+class SlidingWindow;
 class QTabWidget;
+class QMenu;
 class Ensemble;
+class Fasta;
+class FastaMaster;
 class StructureView;
 
 class Main : public QMainWindow
@@ -51,17 +56,34 @@ public:
 		return _tabs;
 	}
 	
-	StructureView *coupleView()
+	CoupleDisplay *coupleView()
 	{
-		return _couple;
+		return _coupleDisplay;
+	}
+	
+	FastaMaster *fMaster()
+	{
+		return _fMaster;
 	}
 
 	void receiveEnsemble(Ensemble *e);
+	void receiveSequence(Fasta *f);
 	
 	void makeReference(Ensemble *e);
 	void setCommandLineArgs(int argc, char *argv[]);
 
+	void makeSequenceMenu();
+	
+	void slidingWindow(size_t window_size, std::string requirements, 
+	                   bool over);
 public slots:
+	void loadFastas();
+	void writeFastas();
+	void writeSubset();
+	void loadMetadata();
+	void mutationWindow();
+	void writeMutations();
+	void prepareSlidingWindow();
 	void loadStructures();
 	void setChosenAsReference();
 	void clickedStructure();
@@ -74,13 +96,17 @@ private:
 	void makeMenu();
 	QTreeWidget *_pdbTree;
 	QTreeWidget *_diffTree;
+	SlidingWindow *_sw;
 	QTabWidget *_tabs;
 	StructureView *_view;
 	StructureView *_couple;
+	CoupleDisplay *_coupleDisplay;
 	DiffDisplay *_diff;
 	MyDictator *_dictator;
+	QMenu *_seqMenu;
 	
 	Ensemble *_ref;
+	FastaMaster *_fMaster;
 	std::vector<std::string> _args;
 };
 

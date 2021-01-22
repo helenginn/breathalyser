@@ -23,26 +23,78 @@
 #include <h3dsrc/SlipObject.h>
 #include <QObject>
 
+class Arrow;
 class QThread;
+class Difference;
 
 class Segment : public QObject, public SlipObject, public AtomGroup
 {
 Q_OBJECT
 public:
-	Segment();
+	Segment(Difference *d, double threshold);
+	static Segment *segmentFrom(Segment *s, Segment *t, double mult);
+	virtual ~Segment();
+	
+	bool ready();
 	
 	void startEnd(int *min, int *max);
 	void populate();
 
 	virtual void render(SlipGL *gl);
+	
+	void addMonomerFromAtom(AtomPtr);
+	void kickOutEarly();
+	bool addAtomIfValid(AtomPtr a);
+	void forceSisterColour();
+	bool enoughCommonGround(Segment *other, double mult);
+
+	size_t subCount()
+	{
+		if (_children.size() == 0)
+		{
+			return 1;
+		}
+
+		return _children.size();
+	}
+	
+	Segment *sub(int i)
+	{
+		if (_children.size() == 0)
+		{
+			return this;
+		}
+		else return _children[i];
+	}
+	
+	void setSister(Segment *s)
+	{
+		_sister = s;
+	}
+	
+	Segment *sister()
+	{
+		return _sister;
+	}
+
+	void motionComparedTo(Segment *s, vec3 *start, vec3 *dir);
 signals:
 	void refine();
 public slots:
 	void refineMesh();
 	void handleMesh();
 
+protected:
+
 private:
+	void addChild(Segment *s);
+
+	Arrow *_arrow;
 	QThread *_w;
+	Segment *_sister;
+	Difference *_diff;
+	double _threshold;
+	std::vector<Segment *> _children;
 };
 
 #endif

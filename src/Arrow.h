@@ -16,25 +16,22 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__myDictator__
-#define __breathalyser__myDictator__
+#ifndef __breathalyser__arrow__
+#define __breathalyser__arrow__
 
-#include <h3dsrc/Dictator.h>
+#include <h3dsrc/SlipObject.h>
 
-class Main;
+class Segment;
 
-class MyDictator : public Dictator
+class Arrow : public SlipObject
 {
 public:
-	MyDictator(Main *main);
+	Arrow(Segment *parent);
 
-protected:
-	virtual bool processRequest(std::string first, std::string last);
+	void populate();
 private:
-	Main *_main;
-	
-	int _start;
-	int _end;
+	Segment *_segment;
+
 };
 
 #endif

@@ -25,7 +25,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
 
-class StructureView;
+class CoupleDisplay;
 class DiffDisplay;
 class Ensemble;
 class Segment;
@@ -39,6 +39,7 @@ typedef boost::weak_ptr<Atom> AtomWkr;
 
 /****************** End atom definition ********************/
 
+typedef std::map<AtomPtr, AtomPtr> AtomMap;
 typedef std::pair<AtomPtr, AtomPtr> AtomCouple;
 typedef std::pair<int, int> IntPair;
 
@@ -48,8 +49,10 @@ Q_OBJECT
 public:
 	Difference(int w, int h);
 
-	void toCoupleView(StructureView *view);
+	void toCoupleDisplay(CoupleDisplay *view);
 	void setEnsembles(Ensemble *a, Ensemble *b);
+	void applySegmentsToEnsembles();
+
 	void setMain(Main *m)
 	{
 		_main = m;
@@ -65,36 +68,48 @@ public:
 		return _atoms.size();
 	}
 	
-	size_t segmentCount()
+	Ensemble *aEnsemble()
 	{
-		return _segments.size();
+		return _ea;
 	}
 	
-	Segment *segment(int i)
+	Ensemble *bEnsemble()
 	{
-		return _segments[i];
+		return _eb;
 	}
 
 	void populate(bool force = false);
+	double valueBetween(AtomPtr a, AtomPtr b);
+	
+	AtomPtr getPartnerAtom(AtomPtr a);
 public slots:
 	void thresholdChanged(int val);
 	void calculate();
+	void tryMerges();
 
 private:
+	void drawOnSegment(Segment *s, Segment *t, 
+	                   QPainter &painter, double box_size);
+
 	void findCommonAtoms();
 	void findSegments(double val);
-	void loadSegmentsToView();
+	void addSegments(Segment *seg_a, double threshold);
+	bool closerSegmentThan(Segment *s, Segment *t);
 
 	Ensemble *_ea;
 	Ensemble *_eb;
+
+	std::vector<Segment *> _aSegments;
+	std::vector<Segment *> _bSegments;
 	
 	Main *_main;
 
 	DiffDisplay *_display;
-	StructureView *_coupleView;
+	CoupleDisplay *_coupleDisplay;
 	std::vector<AtomPtr> _atoms;
 	std::vector<AtomCouple> _atomCouples;
-	std::vector<Segment *> _segments;
+	AtomMap _map;
+
 	std::map<AtomCouple, double> _vals;
 	double _max;
 	bool _drawn;

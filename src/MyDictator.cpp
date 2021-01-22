@@ -16,14 +16,19 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
+#include "Main.h"
 #include "MyDictator.h"
+#include "FastaMaster.h"
 #include "LoadStructure.h"
+#include "LoadFastas.h"
 #include <iostream>
 #include <hcsrc/FileReader.h>
 
 MyDictator::MyDictator(Main *main) : Dictator()
 {
 	_main = main;
+	_start = -1;
+	_end = -1;
 }
 
 bool MyDictator::processRequest(std::string first, std::string last)
@@ -38,6 +43,78 @@ bool MyDictator::processRequest(std::string first, std::string last)
 		{
 			ls.loadPDB(pdbs[i]);
 		}
+	}
+	if (first == "focus-range")
+	{
+		std::vector<std::string> bits = split(last, '-');
+		if (bits.size() == 2)
+		{
+			_start = atoi(bits[0].c_str());
+			_end = atoi(bits[1].c_str());
+		}
+	}
+	if (first == "load-nucleotide-seq")
+	{
+		std::vector<std::string> files = split(last, ',');
+		LoadFastas lf;
+		lf.setMain(_main);
+		
+		for (size_t i = 0; i < files.size(); i++)
+		{
+			lf.loadSequence(files[i], _start, _end, false);
+		}
+	}
+	if (first == "load-protein-seq")
+	{
+		std::vector<std::string> files = split(last, ',');
+		LoadFastas lf;
+		lf.setMain(_main);
+		
+		for (size_t i = 0; i < files.size(); i++)
+		{
+			lf.loadSequence(files[i], _start, _end, true);
+		}
+	}
+	if (first == "write-fastas")
+	{
+		_main->fMaster()->writeOutFastas(last);
+	}
+	if (first == "write-mutations")
+	{
+		_main->fMaster()->writeOutMutations(last);
+	}
+	if (first == "clear-fastas")
+	{
+		_main->fMaster()->clear();
+	}
+	if (first == "load-metadata")
+	{
+		_main->fMaster()->loadMetadata(last);
+		_main->makeSequenceMenu();
+	}
+	if (first == "order-by")
+	{
+		_main->fMaster()->reorderBy(last);
+	}
+	if (first == "highlight-mutations")
+	{
+		_main->fMaster()->highlightMutations();
+	}
+	if (first == "clear-mutations")
+	{
+		_main->fMaster()->clearMutations();
+	}
+	if (first == "require-mutation")
+	{
+		_main->fMaster()->requireMutation(last);
+	}
+	if (first == "write-cluster4x")
+	{
+		_main->fMaster()->writeCluster4xFile(last);
+	}
+	if (first == "quit")
+	{
+		exit(0);
 	}
 
 	return true;

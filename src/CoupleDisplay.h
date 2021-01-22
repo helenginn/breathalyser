@@ -16,25 +16,53 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__myDictator__
-#define __breathalyser__myDictator__
+#ifndef __breathalyser__coupledisplay__
+#define __breathalyser__coupledisplay__
 
-#include <h3dsrc/Dictator.h>
+#include <QWidget>
 
 class Main;
+class Ensemble;
+class Difference;
+class StructureView;
 
-class MyDictator : public Dictator
+class CoupleDisplay : public QWidget
 {
+Q_OBJECT
 public:
-	MyDictator(Main *main);
+	CoupleDisplay(QWidget *parent, StructureView *view);
 
-protected:
-	virtual bool processRequest(std::string first, std::string last);
+	void setMain(Main *main)
+	{
+		_main = main;
+	}
+
+	void setDifference(Difference *d);
+public slots:
+	void displayFirst();
+	void displaySecond();
+	void displayBoth();
+	void mergeSegments();
+
 private:
-	Main *_main;
+	void setEnsembles(Ensemble *a, Ensemble *b);
+	void correctDisplay();
+
+	typedef enum
+	{
+		DisplayFirst,
+		DisplaySecond,
+		DisplayBoth
+	} DisplayType;
 	
-	int _start;
-	int _end;
+	DisplayType _type;
+
+	Main *_main;
+	StructureView *_view;
+
+	Ensemble *_ea;
+	Ensemble *_eb;
+	Difference *_diff;
 };
 
 #endif

@@ -17,6 +17,7 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include <iostream>
+#include <h3dsrc/Text.h>
 #include "StructureView.h"
 #include "Ensemble.h"
 #include "Segment.h"
@@ -25,8 +26,14 @@ StructureView::StructureView(QWidget *parent) : SlipGL(parent)
 {
 	_centreSet = false;
 	setBackground(1, 1, 1, 1);
-	setZFar(1000.);
+	setZFar(2000.);
 	setFocusPolicy(Qt::ClickFocus);
+	_text = NULL;
+}
+
+void StructureView::initializeGL()
+{
+	SlipGL::initializeGL();
 }
 
 void StructureView::addEnsemble(Ensemble *e)
@@ -43,21 +50,29 @@ void StructureView::addEnsemble(Ensemble *e)
 	if (!_centreSet)
 	{
 		vec3 centre = e->averagePos();
+		_centre = centre;
 		focusOnPosition(centre);
 		_centreSet = true;
 	}
 }
 
-void StructureView::clearSegments()
+void StructureView::addLabel(std::string str)
 {
-	for (size_t i = 0; i < _objects.size(); i++)
+	Text *text = new Text();
+	text->setProperties(_centre, str, 72, Qt::black,
+	                    0, -300, -20);
+	text->prepare();
+	setText(text);
+}
+
+void StructureView::setText(Text *text)
+{
+	removeObject(_text);
+	delete _text;
+	_text = text;
+	if (text)
 	{
-		Segment *s = dynamic_cast<Segment *>(_objects[i]);
-		if (s)
-		{
-			_objects.erase(_objects.begin() + i);
-			i--;
-			std::cout << "Removed segment" << std::endl;
-		}
+		addObject(text, false);
 	}
 }
+

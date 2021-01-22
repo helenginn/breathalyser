@@ -1,4 +1,4 @@
-set path=./,src/**,
+set path=./,src/**,~/vagabond/subprojects/**,
 
 command! Tags !ctags -R src/**
 command! Ninja :wa|!ninja -C build/current

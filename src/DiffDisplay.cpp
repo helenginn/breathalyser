@@ -25,7 +25,7 @@
 #include "Main.h"
 #include "DiffDisplay.h"
 #include "Difference.h"
-#include "StructureView.h"
+#include "CoupleDisplay.h"
 
 DiffDisplay::DiffDisplay(QWidget *parent, Difference *diff) : QWidget(parent)
 {
@@ -78,14 +78,14 @@ void DiffDisplay::changeDifference(Difference *diff)
 
 	disconnect(_threshold, &QSlider::valueChanged, nullptr, nullptr);
 	connect(_threshold, &QSlider::valueChanged,
-	        _diff, &Difference::thresholdChanged);
+	        _diff, &Difference::thresholdChanged, Qt::UniqueConnection);
 
 	disconnect(_calculate, &QPushButton::clicked, nullptr, nullptr);
 	connect(_calculate, &QPushButton::clicked,
 	        _diff, &Difference::calculate);
 	
 	QTabWidget *tabs = _main->tabs();
-	StructureView *view = _main->coupleView();
+	CoupleDisplay *view = _main->coupleView();
 
 	connect(_calculate, &QPushButton::clicked,
 	        tabs, [=]{ tabs->setCurrentWidget(view);});

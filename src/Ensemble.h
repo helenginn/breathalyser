@@ -22,6 +22,14 @@
 #include <QTreeWidgetItem>
 #include <h3dsrc/SlipObject.h>
 
+class Text;
+class Fasta;
+class Segment;
+class Icosahedron;
+
+class Atom;
+typedef boost::shared_ptr<Atom> AtomPtr;
+
 /******************** Crystal definition ***************************/
 namespace Vagabond
 {
@@ -66,7 +74,40 @@ public:
 		_isReference = ref;
 		updateText();
 	}
+	
+	void addSegment(Segment *seg)
+	{
+		_segments.push_back(seg);
+	}
+	
+	size_t segmentCount()
+	{
+		return _segments.size();
+	}
+	
+	Segment *segment(int i)
+	{
+		return _segments[i];
+	}
+	
+	void setSegments(std::vector<Segment *> segments)
+	{
+		_segments = segments;
+	}
+	
+	void removeSegment(int i)
+	{
+		_segments.erase(_segments.begin() + i);
+	}
+	
+	std::vector<Segment *> segments()
+	{
+		return _segments;
+	}
+	
+	void deleteSegments();
 
+	void processNucleotides(Fasta *f);
 	void addCAlpha(vec3 point);
 	void repopulate();
 	void updateText();
@@ -74,10 +115,24 @@ public:
 
 	virtual void render(SlipGL *gl);
 
+	size_t makeBalls();
+	bool processFasta(Fasta *f, std::string requirements = "");
+	void clearBalls();
+
 	void minMaxResidues(std::string ch, int *min, int *max);
-	std::string generateSequence(std::string chain);
+	std::string generateSequence(std::string chain, int *minRes = NULL);
+	vec3 centroidForChain(std::string chain);
 	std::string findMatchingChain(std::string ch, Ensemble *other);
+	
 private:
+	void processMutation(std::string mutation);
+	std::vector<Segment *> _segments;
+	std::vector<Icosahedron *> _balls;
+	std::vector<Text *> _texts;
+	std::map<AtomPtr, Icosahedron *> _ballMap;
+	std::map<AtomPtr, Text *> _textMap;
+	std::map<int, std::vector<std::string> > _muts;
+	int _fastaCount;
 	void findChains();
 	void convertToBezier();
 	CrystalPtr _crystal;
