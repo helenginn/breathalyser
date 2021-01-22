@@ -53,23 +53,25 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 
 	QVBoxLayout *treeout = new QVBoxLayout();
 
-	_pdbTree = new QTreeWidget(window);
-	_pdbTree->show();
+	_pdbTree = new QTreeWidget(NULL);
 	_pdbTree->setHeaderLabel("Structures");
 	_pdbTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	_pdbTree->setContextMenuPolicy(Qt::CustomContextMenu);
 	_pdbTree->setMaximumSize(QSize(250, 500));
 
-	_diffTree = new QTreeWidget(window);
-	_diffTree->show();
+	_diffTree = new QTreeWidget(NULL);
 	_diffTree->setHeaderLabel("Distance matrices");
 	_diffTree->setMaximumSize(QSize(250, 500));
 	
-	_fMaster = new FastaMaster();
+	_fMaster = new FastaMaster(window);
+	_fMaster->setHeaderLabel("Sequence groups");
+	_fMaster->setMaximumSize(QSize(250, 1500));
+	treeout->addWidget(_fMaster);
+
 	_seqMenu = NULL;
 
-	treeout->addWidget(_pdbTree);
-	treeout->addWidget(_diffTree);
+//	treeout->addWidget(_pdbTree);
+//	treeout->addWidget(_diffTree);
 	layout->addItem(treeout);
 
 	_tabs = new QTabWidget(window);
@@ -82,12 +84,12 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 
 	_diff = new DiffDisplay(NULL, NULL);
 	_diff->setMain(this);
-	_tabs->addTab(_diff, "Difference view");
+//	_tabs->addTab(_diff, "Difference view");
 
 	_couple = new StructureView(NULL);
 	_coupleDisplay = new CoupleDisplay(NULL, _couple);
 
-	_tabs->addTab(_coupleDisplay, "Couple view");
+//	_tabs->addTab(_coupleDisplay, "Couple view");
 
 	connect(_pdbTree, &QTreeWidget::customContextMenuRequested,
 	        this, &Main::structureMenu);
@@ -262,6 +264,7 @@ void Main::receiveSequence(Fasta *f)
 void Main::receiveEnsemble(Ensemble *e)
 {
 	_pdbTree->addTopLevelItem(e);
+	_view->addEnsemble(e);
 	
 	if (_pdbTree->topLevelItemCount() == 1)
 	{

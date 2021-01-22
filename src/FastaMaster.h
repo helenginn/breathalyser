@@ -21,7 +21,7 @@
 
 #include <vector>
 #include <string>
-#include <QObject>
+#include <QTreeWidget>
 
 class Fasta;
 class QMenu;
@@ -33,11 +33,11 @@ typedef std::map<Fasta *, KeyValue> FastaKeys;
 typedef std::map<std::string, KeyValue> NameKeys;
 typedef std::map<std::string, Fasta *> FastaNames;
 
-class FastaMaster : public QObject
+class FastaMaster : public QTreeWidget
 {
 Q_OBJECT
 public:
-	FastaMaster();
+	FastaMaster(QWidget *parent);
 	
 	bool isActive()
 	{

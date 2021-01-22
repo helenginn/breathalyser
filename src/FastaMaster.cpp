@@ -30,7 +30,7 @@
 
 #include <hcsrc/FileReader.h>
 
-FastaMaster::FastaMaster()
+FastaMaster::FastaMaster(QWidget *parent) : QTreeWidget(parent)
 {
 	_active = false;
 	_req = INT_MAX;
