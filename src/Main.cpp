@@ -28,6 +28,7 @@
 
 #include "SlidingWindow.h"
 #include "FastaMaster.h"
+#include "FastaGroup.h"
 #include "DiffDisplay.h"
 #include "CoupleDisplay.h"
 #include "Difference.h"
@@ -66,6 +67,8 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 	_fMaster = new FastaMaster(window);
 	_fMaster->setHeaderLabel("Sequence groups");
 	_fMaster->setMaximumSize(QSize(250, 1500));
+	_fMaster->setContextMenuPolicy(Qt::CustomContextMenu);
+	_fMaster->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	treeout->addWidget(_fMaster);
 
 	_seqMenu = NULL;
@@ -80,6 +83,7 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 	setCentralWidget(window);
 
 	_view = new StructureView(NULL);
+	_view->setMain(this);
 	_tabs->addTab(_view, "Structure view");
 
 	_diff = new DiffDisplay(NULL, NULL);
@@ -93,6 +97,9 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 
 	connect(_pdbTree, &QTreeWidget::customContextMenuRequested,
 	        this, &Main::structureMenu);
+
+	connect(_fMaster, &QTreeWidget::customContextMenuRequested,
+	        this, &Main::fastaMenu);
 	
 	connect(_pdbTree, &QTreeWidget::itemSelectionChanged,
 	        this, &Main::clickedStructure);
@@ -216,7 +223,7 @@ void Main::writeSubset()
 		return;
 	}
 	
-	_fMaster->writeOutFastas(filename, false);
+	_fMaster->writeOutFastas(filename);
 }
 
 void Main::writeMutations()
@@ -413,5 +420,25 @@ void Main::setCommandLineArgs(int argc, char *argv[])
 	_dictator = new MyDictator(this);
 	_dictator->setArgs(_args);
 	_dictator->run();
+}
+
+void Main::fastaMenu(const QPoint &p)
+{
+	QMenu *m = new QMenu();
+	QPoint pos = centralWidget()->mapToGlobal(p);
+	FastaGroup *group = _fMaster->selectedGroup();
+
+	if (group != NULL)
+	{
+		group->giveMenu(m);
+	}
+
+	if (_fMaster->selectedFasta())
+	{
+		m->addSeparator();
+		_fMaster->selectedFasta()->giveMenu(m, group);
+	}
+
+	m->exec(pos);
 }
 

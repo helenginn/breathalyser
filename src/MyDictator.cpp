@@ -108,10 +108,6 @@ bool MyDictator::processRequest(std::string first, std::string last)
 	{
 		_main->fMaster()->requireMutation(last);
 	}
-	if (first == "write-cluster4x")
-	{
-		_main->fMaster()->writeCluster4xFile(last);
-	}
 	if (first == "quit")
 	{
 		exit(0);

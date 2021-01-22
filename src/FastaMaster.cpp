@@ -17,7 +17,9 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include "StructureView.h"
+#include "WidgetFasta.h"
 #include "FastaMaster.h"
+#include "FastaGroup.h"
 #include "Ensemble.h"
 #include "Fasta.h"
 
@@ -32,40 +34,18 @@
 
 FastaMaster::FastaMaster(QWidget *parent) : QTreeWidget(parent)
 {
+	_top = new FastaGroup(this);
+	_top->setPermanent(true);
+	addTopLevelItem(_top);
+	_top->setCustomName("all");
+	setCurrentItem(_top);
+
 	_active = false;
 	_req = INT_MAX;
 	_aa = '\0';
-}
-
-void FastaMaster::writeCluster4xFile(std::string filename)
-{
-	std::ofstream csv;
-	csv.open(filename);
-
-	for (size_t i = 0; i < _subfastas.size() - 1; i++)
-	{
-		for (size_t j = i + 1; j < _subfastas.size(); j++)
-		{
-			_subfastas[i]->carefulCompareWithFasta(_subfastas[j]);
-			double muts = _subfastas[i]->mutationCount();
-			muts /= 4;
-
-			double score = exp(-(muts * muts));
-			if (score != score)
-			{
-				score = 0;
-			}
-
-			csv << _subfastas[i]->name() << ",";
-			csv << _subfastas[j]->name() << ",";
-			csv << std::setprecision(6) << std::fixed << std::showpoint;
-			csv << score << std::endl;
-		}
-
-		_subfastas[i]->carefulCompareWithFasta(_fastas[0]);
-	}
-
-	csv.close();
+	
+	connect(this, &QTreeWidget::itemClicked, this,
+	        &FastaMaster::itemClicked);
 }
 
 void FastaMaster::writeOutMutations(std::string filename, bool all)
@@ -97,6 +77,11 @@ void FastaMaster::writeOutMutations(std::string filename, bool all)
 			f->at(i)->carefulCompareWithFasta(_fastas[0]);
 		}
 		
+		if (f->at(i)->isProblematic())
+		{
+			continue;
+		}
+		
 		count++;
 
 		muts << f->at(i)->name() << ",";
@@ -109,38 +94,12 @@ void FastaMaster::writeOutMutations(std::string filename, bool all)
 	<< _fastas.size() << " total." << std::endl;
 }
 
-void FastaMaster::writeOutFastas(std::string filename, bool all)
+void FastaMaster::writeOutFastas(std::string filename)
 {
-	std::ofstream seqs;
-	seqs.open(filename);
-	
-	int count = 0;
-	
-	std::vector<Fasta *> *f = &_fastas;
-	
-	if (!all)
+	if (selectedGroup())
 	{
-		f = &_subfastas;
+		selectedGroup()->writeOutFastas(filename);
 	}
-
-	for (size_t i = 0; i < f->size(); i++)
-	{
-		if (!f->at(i)->hasResult())
-		{
-			std::cout << "Skipping " << f->at(i)->name()
-			<< " as could not locate protein sequence." << std::endl;
-			continue;
-		}
-		
-		count++;
-		seqs << ">" << f->at(i)->name() << std::endl;
-		seqs << f->at(i)->result() << std::endl;
-	}
-	
-	seqs.close();
-
-	std::cout << "Written out " << count << " fastas of " 
-	<< _fastas.size() << " total." << std::endl;
 }
 
 void FastaMaster::addFasta(Fasta *f)
@@ -162,8 +121,9 @@ void FastaMaster::addFasta(Fasta *f)
 
 	}
 	
-
 	checkForMutation(f);
+	_top->addFasta(f);
+	_top->updateText();
 
 	_active = true;
 }
@@ -223,8 +183,13 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 
 		trim(components[0]);
 		Fasta *which = _names[components[0]];
+		
+		if (_nameKeys.count(components[0]))
+		{
+			kv = _nameKeys[components[0]];
+		}
 
-		for (size_t j = 1; j < components.size(); j++)
+		for (size_t j = 0; j < components.size(); j++)
 		{
 			trim(components[j]);
 			kv[tmpTitles[j]] = components[j];
@@ -265,12 +230,28 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 	checkForMutations();
 }
 
+void FastaMaster::requireMutation(std::string reqs)
+{
+	FastaGroup *g = selectedGroup();
+	if (selectedGroup() == NULL)
+	{
+		g = _top;
+	}
+
+	g->makeRequirementGroup(reqs);
+}
+
 void FastaMaster::checkForMutation(Fasta *f)
 {
+	if (fastaCount() == 0)
+	{
+		return;
+	}
+
 	if (_keys[f].count("mutations"))
 	{
 		std::string val = _keys[f]["mutations"];
-		f->loadMutations(val);
+		f->loadMutations(val, fasta(0)->result());
 	}
 }
 
@@ -293,66 +274,6 @@ void FastaMaster::clearMutations()
 	_ref->clearBalls();
 }
 
-void FastaMaster::highlightRange(int start, int end)
-{
-	if (start >= end)
-	{
-		std::cout << "Start/end range invalid." << std::endl;
-		return;
-	}
-	
-	if (start < 0)
-	{
-		start = 0;
-	}
-	
-	if (end > (int)_fastas.size())
-	{
-		end = _fastas.size();
-	}
-
-	_ref->clearBalls();
-	_subfastas.clear();
-	_subfastas.push_back(_fastas[0]);
-
-	std::vector<std::string> mutations;
-	int total = end - start;
-	int count = 0;
-	int step = total / 100;
-
-	for (size_t j = start; j < (size_t)end; j++)
-	{
-		if (!_fastas[j]->hasResult())
-		{
-			continue;
-		}
-
-		if (_fastas[j] == _fastas[0])
-		{
-			continue;
-		}
-
-		if (!_fastas[j]->hasCompared())
-		{
-			_fastas[j]->carefulCompareWithFasta(_fastas[0]);
-
-			if (count % step == 0)
-			{
-				std::cout << "." << std::flush;
-			}
-		}
-
-		bool taken = _ref->processFasta(_fastas[j], _requirements);
-		
-		if (taken)
-		{
-			_subfastas.push_back(_fastas[j]);
-		}
-	}
-	
-	int seqCount = _ref->makeBalls();
-	std::cout << "Number of sequences: " << seqCount << std::endl;
-}
 
 void FastaMaster::highlightMutations()
 {
@@ -361,8 +282,11 @@ void FastaMaster::highlightMutations()
 	{
 		std::cout << "No fastas to highlight with." << std::endl;
 	}
-	std::cout << "Reference is " << _fastas[0]->name() << std::endl;
-	highlightRange(0, _fastas.size());
+	
+	if (selectedGroup())
+	{
+		selectedGroup()->highlightRange();
+	}
 }
 
 void FastaMaster::slidingWindowHighlight(StructureView *view,
@@ -402,7 +326,7 @@ void FastaMaster::slidingWindowHighlight(StructureView *view,
 		}
 
 		std::cout << "Highlighting range " << std::endl;
-		highlightRange(i, i + window);
+		_top->highlightRange(i, i + window);
 		view->update();
 		
 		std::string number = i_to_str(count);
@@ -451,72 +375,35 @@ void FastaMaster::slidingWindowHighlight(StructureView *view,
 
 void FastaMaster::clear()
 {
+	clear();
+
+	for (size_t i = 0; i < _fastas.size(); i++)
+	{
+		_top->removeChild(_fastas[i]);
+		delete _fastas[i];
+	}
+
+	addTopLevelItem(_top);
+	_top->updateText();
+
 	_fastas.clear();
 	_lastOrdered = "";
 }
 
 
-std::string FastaMaster::valueForKey(Fasta *f, std::string key)
-{
-	if (_keys.count(f) == 0)
-	{
-		return "";
-	}
-	
-	KeyValue kv = _keys[f];
-
-	if (kv.count(key) == 0)
-	{
-		return "";
-	}
-	
-	return kv[key];
-}
-
-typedef struct
-{
-	Fasta *f;
-	std::string value;
-} FastaValue;
-
-bool smaller_value(const FastaValue &v1, const FastaValue &v2)
-{
-	return (v1.value < v2.value);
-}
-
 void FastaMaster::reorderBy(std::string title)
 {
-	if (std::find(_titles.begin(), _titles.end(), title) == _titles.end())
-	{
-		std::cout << "Cannot find title in database." << std::endl;
-		return;
-	}
-	
-	std::vector<FastaValue> values;
+	_top->reorderBy(title);
+}
 
-	for (size_t i = 0; i < _fastas.size(); i++)
-	{
-		std::string value = valueForKey(_fastas[i], title);
-		FastaValue pair;
-		pair.f = _fastas[i];
-		pair.value = value;
-		values.push_back(pair);
-	}
-	
-	std::sort(values.begin(), values.end(), smaller_value);
-	
-	std::vector<Fasta *> better;
+size_t FastaMaster::fastaCount()
+{
+	return _top->fastaCount();
+}
 
-	for (size_t i = 0; i < values.size(); i++)
-	{
-		better.push_back(values[i].f);
-	}
-	
-	_fastas = better;
-	
-	_lastOrdered = title;
-	
-	std::cout << "Reordered by " << title << "." << std::endl;
+Fasta *FastaMaster::fasta(int i)
+{
+	return _top->fasta(i);
 }
 
 void FastaMaster::makeMenu(QMenu *m)
@@ -539,5 +426,79 @@ void FastaMaster::makeMenu(QMenu *m)
 void FastaMaster::setReference(Ensemble *e)
 {
 	_ref = e;
+	_top->setEnsemble(_ref);
 	_refSeq = e->generateSequence(_ref->chain(0), &_minRes);
+}
+
+FastaGroup *FastaMaster::selectedGroup()
+{
+	QTreeWidgetItem *item = currentItem();
+	WidgetFasta *f = dynamic_cast<WidgetFasta *>(item);
+	
+	if (f != NULL)
+	{
+		return f->group();
+	}
+
+	FastaGroup *g = dynamic_cast<FastaGroup *>(item);
+
+	return g;
+}
+
+Fasta *FastaMaster::selectedFasta()
+{
+	QTreeWidgetItem *item = currentItem();
+	WidgetFasta *f = dynamic_cast<WidgetFasta *>(item);
+	
+	if (f == NULL)
+	{
+		return NULL;
+	}
+
+	return f->fasta();
+}
+
+void FastaMaster::itemClicked(QTreeWidgetItem *item, int column)
+{
+	FastaGroup *grp = selectedGroup();
+	if (grp)
+	{
+		grp->highlightRange();
+	}
+
+}
+
+bool FastaMaster::fastaHasKey(Fasta *f, std::string key)
+{
+	if (_nameKeys.count(f->name()) == 0)
+	{
+		return false;
+	}
+	
+	if (_nameKeys[f->name()].count(key) == 0)
+	{
+		return false;
+	}
+	
+	return true;
+}
+
+std::string FastaMaster::valueForKey(Fasta *f, std::string key)
+{
+	if (fastaHasKey(f, key))
+	{
+		return _nameKeys[f->name()][key];
+	}
+	
+	return "";
+}
+
+bool FastaMaster::hasKey(std::string key)
+{
+	return (std::find(_titles.begin(), _titles.end(), key) != _titles.end());
+}
+
+bool FastaMaster::isReference(Fasta *f)
+{
+	return _top->fastaCount() && f == _top->fasta(0);
 }

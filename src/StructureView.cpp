@@ -17,10 +17,13 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include <iostream>
+#include <QMenu>
 #include <h3dsrc/Text.h>
 #include "StructureView.h"
 #include "Ensemble.h"
 #include "Segment.h"
+#include "FastaMaster.h"
+#include "Main.h"
 
 StructureView::StructureView(QWidget *parent) : SlipGL(parent)
 {
@@ -29,6 +32,7 @@ StructureView::StructureView(QWidget *parent) : SlipGL(parent)
 	setZFar(2000.);
 	setFocusPolicy(Qt::ClickFocus);
 	_text = NULL;
+	_ensemble = NULL;
 }
 
 void StructureView::initializeGL()
@@ -46,6 +50,7 @@ void StructureView::addEnsemble(Ensemble *e)
 	e->repopulate();
 
 	addObject(e, false);
+	_ensemble = e;
 	
 	if (!_centreSet)
 	{
@@ -76,3 +81,49 @@ void StructureView::setText(Text *text)
 	}
 }
 
+void StructureView::clickMouse(double x, double y)
+{
+	if (_ensemble != NULL)
+	{
+		std::string mut = _ensemble->whichMutation(x, y);
+		std::cout << "Selected residue: " << mut << std::endl;
+	}
+}
+
+void StructureView::mouseReleaseEvent(QMouseEvent *e)
+{
+	if (!_moving && e->button() == Qt::LeftButton)
+	{
+		double x = e->x(); double y = e->y();
+		convertCoords(&x, &y);
+		clickMouse(x, y);
+	}
+	if (!_moving && e->button() == Qt::RightButton)
+	{
+		double x = e->x(); double y = e->y();
+		QPoint p = mapToGlobal(QPoint(x, y));
+		makeMutationMenu(p);
+	}
+
+	SlipGL::mouseReleaseEvent(e);
+}
+
+void StructureView::makeMutationMenu(QPoint &p)
+{
+	std::string resi = _ensemble->selectedMutation();
+	std::string inverse = "!" + resi;
+
+	if (resi.length() == 0)
+	{
+		return;
+	}
+	
+	QMenu *m = new QMenu();
+	QAction *act = m->addAction("Select on mutation");
+	connect(act, &QAction::triggered, 
+	        this, [=] {_main->fMaster()->requireMutation(resi);});
+	act = m->addAction("Select on wild-type");
+	connect(act, &QAction::triggered, 
+	        this, [=] {_main->fMaster()->requireMutation(inverse);});
+	m->exec(p);
+}

@@ -16,41 +16,34 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__structureview__
-#define __breathalyser__structureview__
+#ifndef __breathalyser__widgetfasta__
+#define __breathalyser__widgetfasta__
 
-#include <QObject>
-#include <h3dsrc/SlipGL.h>
+#include <QTreeWidgetItem>
 
-class Main;
-class Ensemble;
-class Text;
+class Fasta;
+class FastaGroup;
 
-class StructureView : public SlipGL
+class WidgetFasta : public QTreeWidgetItem
 {
 public:
-	StructureView(QWidget *parent);
-	void addEnsemble(Ensemble *e);
+	WidgetFasta(Fasta *f, FastaGroup *g);
 	
-	void setText(Text *text);
-	void addLabel(std::string string);
+	void refreshTip();
 	
-	void setMain(Main *main)
+	Fasta *fasta()
 	{
-		_main = main;
+		return _fasta;
 	}
-protected:
-	void makeMutationMenu(QPoint &p);
-	void clickMouse(double x, double y);
+	
+	FastaGroup *group()
+	{
+		return _group;
+	}
 
-	virtual void initializeGL();
-	virtual void mouseReleaseEvent(QMouseEvent *e);
 private:
-	Main *_main;
-	Ensemble *_ensemble;
-	Text *_text;
-	vec3 _centre;
-	bool _centreSet;
+	Fasta *_fasta;
+	FastaGroup *_group;
 
 };
 

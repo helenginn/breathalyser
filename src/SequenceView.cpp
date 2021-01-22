@@ -16,42 +16,6 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__structureview__
-#define __breathalyser__structureview__
+#include "SequenceView.h"
 
-#include <QObject>
-#include <h3dsrc/SlipGL.h>
-
-class Main;
-class Ensemble;
-class Text;
-
-class StructureView : public SlipGL
-{
-public:
-	StructureView(QWidget *parent);
-	void addEnsemble(Ensemble *e);
-	
-	void setText(Text *text);
-	void addLabel(std::string string);
-	
-	void setMain(Main *main)
-	{
-		_main = main;
-	}
-protected:
-	void makeMutationMenu(QPoint &p);
-	void clickMouse(double x, double y);
-
-	virtual void initializeGL();
-	virtual void mouseReleaseEvent(QMouseEvent *e);
-private:
-	Main *_main;
-	Ensemble *_ensemble;
-	Text *_text;
-	vec3 _centre;
-	bool _centreSet;
-
-};
-
-#endif
+SequenceView::SequenceView

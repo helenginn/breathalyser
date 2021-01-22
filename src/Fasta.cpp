@@ -17,11 +17,48 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include "Fasta.h"
+#include "FastaGroup.h"
+
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <QMenu>
 #include <hcsrc/Blast.h>
 #include <hcsrc/FileReader.h>
+
+inline bool isAddition(std::string m)
+{
+	return (m.back() == '+');
+}
+
+inline bool isDeletion(std::string m)
+{
+	return (m.back() == '-');
+}
+
+inline int residue(std::string m)
+{
+	int mut = atoi(&m.c_str()[1]);
+	return mut;
+}
+
+inline bool isResidue(std::string m, int i)
+{
+	int mut = atoi(&m.c_str()[1]);
+	return mut == i;
+}
+
+inline void decrementResidue(std::string &m, int go_back)
+{
+	unsigned char orig = m[0];
+	int mut = atoi(&m.c_str()[1]);
+	unsigned char last = m.back();
+	std::string new_mut;
+	new_mut += orig;
+	new_mut += i_to_str(mut - go_back);
+	new_mut += last;
+	m = new_mut;
+}
 
 Fasta::Fasta(std::string name)
 {
@@ -31,6 +68,12 @@ Fasta::Fasta(std::string name)
 	_orf = -1;
 	_stop = -1;
 	_offset = -1;
+	setText(0, QString::fromStdString(name));
+}
+
+unsigned char Fasta::letter(int i)
+{
+	return _result[_refToMe[i]];
 }
 
 void Fasta::setSequence(std::string seq, bool protein)
@@ -289,7 +332,7 @@ bool Fasta::roughlyAlign(std::string mine, std::string ref, int minRes)
 			_offset = minRes;
 			_seq.clear();
 
-			std::cout << "Found " << name() << ", offset " << _offset << std::endl;
+//			std::cout << "Found " << name() << ", offset " << _offset << std::endl;
 			return true;
 		}
 	}
@@ -335,58 +378,6 @@ int Fasta::gapCount()
 	return count;
 }
 
-double Fasta::compareWithFasta(Fasta *f)
-{
-	if (_result.length() != f->_result.length())
-	{
-		return 0;
-	}
-
-	_mutations.clear();
-
-	bool last = true;
-	int best_run = 0;
-	int run = 1;
-	int muts = 0;
-
-	for (size_t i = 0; i < _result.length(); i++)
-	{
-		char a = _result[i];
-		char b = f->_result[i];
-		
-		if (a == ' ' || b == ' ' || a == b)
-		{
-			last = false;
-			if (run > best_run)
-			{
-				best_run = run;
-			}
-
-			run = 1;
-
-			continue;
-		}
-		
-		if (last)
-		{
-			run++;
-		}
-
-		last = true;
-
-		addMutation(b, i, a);
-
-		muts++;
-	}
-
-	double distance = muts;
-	distance /= _result.length() / 200;
-
-	double score = exp(-(distance * distance));
-
-	return score;
-}
-
 void Fasta::addMutation(char fromWhat, int mut, char towhat)
 {
 	std::ostringstream ss;
@@ -417,10 +408,11 @@ void Fasta::carefulCompareWithString(std::string seq2)
 		return;
 	}
 
+	_ref = seq2;
 	Alignment ala, alb;
 	int muts, dels;
 	srand(1);
-	compare_sequences_and_alignments(seq1, seq2, &muts, &dels, ala, alb);
+	compare_sequences_and_alignments(seq1, seq2, &muts, &dels, ala, alb, 2);
 	tidy_alignments(ala, alb);
 
 	std::ostringstream ssleft, ssalign, ssright;
@@ -451,11 +443,6 @@ void Fasta::carefulCompareWithString(std::string seq2)
 			running = 0;
 		}
 
-		if (align[i] != '+' && !(left[i] == ' ' && right[i] == ' '))
-		{
-			plus = 0;
-		}
-
 		offset = 0;
 
 		if (align[i] == '.')
@@ -482,17 +469,138 @@ void Fasta::carefulCompareWithString(std::string seq2)
 			running++;
 		}
 		
-		if (plus > 6)
+		if (plus > 10)
 		{
 			_problematic = true;
 		}
 	}
 	
+	leftJustifyDeletions();
+	
 	_compared = true;
+}
+
+void Fasta::leftJustifyDeletions()
+{
+	sortMutations();
+	
+	for (size_t i = 0; i < mutationCount(); i++)
+	{
+		std::string m = mutation(i);
+		int start = residue(m);
+		
+		if (!isDeletion(mutation(i)))
+		{
+			continue;
+		}
+		
+		int end = start;
+		int count = 0;
+
+		for (size_t j = i + 1; j < mutationCount(); j++)
+		{
+			count++; end++;
+			if (!isResidue(mutation(j), end))
+			{
+				break;
+			}
+		}
+		
+		if (start == _offset)
+		{
+			continue;
+		}
+		
+		if (end == _offset + (int)result().length() - 1)
+		{
+			continue;
+		}
+		
+		std::string comparison = deletionSequence(start, end, 0);
+		
+		if (comparison.length() == 0)
+		{
+			continue;
+		}
+		
+		if (comparison.find(' ') != std::string::npos)
+		{
+			continue;
+		}
+
+		int go_back = 0;
+
+		while (true)
+		{
+			go_back++;
+			std::string back_one = deletionSequence(start, end, go_back);
+
+			if (back_one.find(' ') != std::string::npos)
+			{
+				break;
+			}
+
+			if (comparison != back_one)
+			{
+				break;
+			}
+//			std::cout << m << " " << comparison << " " << back_one << std::endl;
+//				exit(0);
+
+		}
+
+		go_back--;
+		
+		if (go_back == 0)
+		{
+			i += count - 1;
+			continue;
+		}
+		
+//		std::cout << "Decrementing " << count << ": ";
+		
+		for (size_t j = i; j < i + count; j++)
+		{
+			//std::cout << _mutations[j] << ", ";
+			decrementResidue(_mutations[j], go_back);
+		}
+
+		//std::cout << std::endl;
+
+		i += count - 1;
+	}
+
+}
+
+std::string Fasta::deletionSequence(int start, int end, int go_back)
+{
+	int left = start - 2;
+	int right = end + 2;
+	std::string seq;
+	
+	start -= go_back;
+	end -= go_back;
+
+	for (size_t i = left; i <= right; i++)
+	{
+		if (i >= start && i < end)
+		{
+			continue;
+		}
+
+		seq += _ref[i];
+	}
+	
+	return seq;
 }
 
 std::string Fasta::mutationSummary()
 {
+	if (mutationCount() == 0)
+	{
+		return " ";
+	}
+
 	std::ostringstream ss;
 	
 	for (size_t i = 0; i < mutationCount(); i++)
@@ -510,11 +618,93 @@ std::string Fasta::mutationSummary()
 	return str;
 }
 
-void Fasta::loadMutations(std::string muts)
+void Fasta::nudgeMap(int start, int dir)
 {
+	for (IntMap::iterator it = _refToMe.begin(); it != _refToMe.end(); it++)
+	{
+		if (it->first >= start)
+		{
+			it->second += dir;
+		}
+	}
+}
+
+void Fasta::organiseMap()
+{
+	_refToMe.clear();
+	_meToRef.clear();
+
+	for (size_t i = 0; i < _result.length(); i++)
+	{
+		_refToMe[i + _offset] = i;
+	}
+
+	for (size_t i = 0; i < mutationCount(); i++)
+	{
+		std::string m = mutation(i);
+		int resi = residue(m);
+		
+		if (isAddition(m))
+		{
+			nudgeMap(resi, +1);
+		}
+		else if (isDeletion(m))
+		{
+			nudgeMap(resi, -1);
+		}
+	}
+
+	for (IntMap::iterator it = _refToMe.begin(); it != _refToMe.end(); it++)
+	{
+		if (_meToRef.count(it->second) == 0)
+		{
+			_meToRef[it->second] = it->first;
+		}
+	}
+}
+
+
+typedef struct
+{
+	std::string mut;
+	int resi;
+} MutInt;
+
+static bool resi_less(const MutInt &a, const MutInt &b)
+{
+	return a.resi < b.resi;
+}
+
+void Fasta::sortMutations()
+{
+	std::vector<MutInt> tmp;
+
+	for (size_t i = 0; i < mutationCount(); i++)
+	{
+		MutInt mi;
+		mi.mut = mutation(i);
+		mi.resi = residue(mi.mut);
+		tmp.push_back(mi);
+	}
+	
+	std::sort(tmp.begin(), tmp.end(), resi_less);
+	_mutations.clear();
+
+	for (size_t i = 0; i < tmp.size(); i++)
+	{
+		_mutations.push_back(tmp[i].mut);
+	}
+}
+
+void Fasta::loadMutations(std::string muts, std::string ref)
+{
+	_compared = true;
+	_ref = ref;
+
 	_mutations.clear();
 	
 	std::vector<std::string> components = split(muts, ' ');
+	int plus = 0;
 	
 	for (size_t i = 0; i < components.size(); i++)
 	{
@@ -523,8 +713,64 @@ void Fasta::loadMutations(std::string muts)
 			continue;
 		}
 		
+		if (components[i].back() == '+')
+		{
+			plus++;
+		}
+
 		_mutations.push_back(components[i]);
 	}
+
+	if (plus > 10)
+	{
+		_problematic = true;
+	}
 	
-	_compared = true;
+	leftJustifyDeletions();
+}
+
+void Fasta::setIsProblematic()
+{
+	_problematic = true;
+	emit refreshMutations();
+}
+
+void Fasta::giveMenu(QMenu *m, FastaGroup *g)
+{
+	QAction *act = m->addAction("Set as problematic");
+	connect(act, &QAction::triggered, this, &Fasta::setIsProblematic);
+}
+
+int Fasta::oneSidedMutations(Fasta *other)
+{
+	int total = mutationCount();
+
+	for (size_t i = 0; i < mutationCount(); i++)
+	{
+		bool found = other->hasMutation(mutation(i));
+		
+		if (found)
+		{
+			total--;
+		}
+	}
+
+	return total;
+}
+
+int Fasta::sharedMutations(Fasta *other)
+{
+	int total = 0;
+	total += oneSidedMutations(other);
+	total += other->oneSidedMutations(this);
+
+	return total;
+}
+
+bool Fasta::hasMutation(std::string mut)
+{
+	bool found = (std::find(_mutations.begin(), _mutations.end(), mut)
+	              != _mutations.end());
+	
+	return found;
 }

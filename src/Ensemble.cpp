@@ -37,6 +37,8 @@ Ensemble::Ensemble(Ensemble *parent, CrystalPtr c) : QTreeWidgetItem(parent),
 SlipObject()
 {
 	_crystal = c;
+
+	_selected = NULL;
 	_renderType = GL_LINES;
 	_isReference = false;
 	_fastaCount = 0;
@@ -511,11 +513,11 @@ void Ensemble::processNucleotides(Fasta *f)
 	f->roughCompare(seq, minRes);
 }
 
-bool Ensemble::processFasta(Fasta *f, std::string requirements)
+bool Ensemble::shouldProcess(Fasta *f, std::string requirements)
 {
 	bool should = true;
-	
-	if (f->isProblematic())
+
+	if (f->isProblematic() || !f->hasResult())
 	{
 		return false;
 	}
@@ -563,6 +565,13 @@ bool Ensemble::processFasta(Fasta *f, std::string requirements)
 		}
 	}
 	
+	return should;
+}
+
+bool Ensemble::processFasta(Fasta *f, std::string requirements)
+{
+	bool should = shouldProcess(f, requirements);
+	
 	if (!should)
 	{
 		return false;
@@ -581,9 +590,8 @@ bool Ensemble::processFasta(Fasta *f, std::string requirements)
 void Ensemble::processMutation(std::string mutation)
 {
 	int mut = atoi(&mutation.c_str()[1]);
-	AtomList atoms = _crystal->findAtoms("CA", mut);
 	
-	if (atoms.size() == 0)
+	if (_crystal->atomCount() == 0)
 	{
 		return;
 	}
@@ -593,16 +601,20 @@ void Ensemble::processMutation(std::string mutation)
 
 size_t Ensemble::makeBalls()
 {
-	AtomList atoms = _crystal->findAtoms("CA");
-	
-	if (_fastaCount <= 1)
+	if (_fastaCount < 1)
 	{
 		return 0;
 	}
 
-	for (size_t i = 0; i < atoms.size(); i++)
+	if (_cas.size() == 0 && _crystal)
 	{
-		int resNum = atoms[i]->getResidueNum();
+		_cas = _crystal->findAtoms("CA");
+	}
+
+
+	for (size_t i = 0; i < _cas.size(); i++)
+	{
+		int resNum = _cas[i]->getResidueNum();
 		
 		if (_muts[resNum].size() == 0)
 		{
@@ -634,7 +646,7 @@ size_t Ensemble::makeBalls()
 			continue;
 		}
 
-		vec3 abs = atoms[i]->getAbsolutePosition();
+		vec3 abs = _cas[i]->getAbsolutePosition();
 
 		if (pct > 0.3)
 		{
@@ -647,7 +659,7 @@ size_t Ensemble::makeBalls()
 			                    0, 20, -20);
 			text->prepare();
 			_texts.push_back(text);
-			_textMap[atoms[i]] = text;
+			_textMap[_cas[i]] = text;
 		}
 
 		Icosahedron *ico = new Icosahedron();
@@ -668,9 +680,10 @@ size_t Ensemble::makeBalls()
 		std::string f = Structure_fsh();
 		ico->changeProgram(v, f);
 		ico->resize(inflate);
+		ico->setSelectable(true);
 
 		_balls.push_back(ico);
-		_ballMap[atoms[i]] = ico;
+		_ballMap[ico] = i_to_str(resNum);
 	}
 	
 	return _fastaCount;
@@ -688,10 +701,49 @@ void Ensemble::clearBalls()
 		delete _texts[i];
 	}
 
+	_selected = NULL;
 	_texts.clear();
 	_balls.clear();
 	_ballMap.clear();
 	_textMap.clear();
 	_muts.clear();
 	_fastaCount = 0;
+}
+
+std::string Ensemble::whichMutation(double x, double y)
+{
+	Icosahedron *which = NULL;
+	double z = -FLT_MAX;
+
+	for (size_t i = 0; i < _balls.size(); i++)
+	{
+		bool covers = _balls[i]->intersects(x, y, &z);
+		_balls[i]->setSelected(false);
+		
+		if (covers)
+		{
+			which = _balls[i];
+		}
+	}
+	
+	_selected = which;
+	
+	if (which == NULL)
+	{
+		return "";
+	}
+
+	which->setSelected(true);
+
+	return _ballMap[which];
+}
+
+std::string Ensemble::selectedMutation()
+{
+	if (_selected == NULL)
+	{
+		return "";
+	}
+
+	return _ballMap[_selected];
 }

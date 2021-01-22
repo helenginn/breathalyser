@@ -20,10 +20,18 @@
 #define __breathalyser__fasta__
 
 #include <string>
+#include <map>
 #include <vector>
 
-class Fasta
+#include <QTreeWidgetItem>
+
+class FastaGroup;
+
+typedef std::map<int, int> IntMap;
+
+class Fasta : public QObject, public QTreeWidgetItem
 {
+Q_OBJECT
 public:
 	Fasta(std::string name);
 	
@@ -49,6 +57,8 @@ public:
 		return _result;
 	}
 	
+	unsigned char letter(int i);
+	
 	bool hasResult()
 	{
 		return _result.length() > 0;
@@ -66,6 +76,8 @@ public:
 		return _mutations.size();
 	}
 	
+	bool hasMutation(std::string mut);
+	
 	bool hasCompared()
 	{
 		return _compared;
@@ -81,13 +93,40 @@ public:
 	double compareWithFasta(Fasta *f);
 	void addMutation(char fromWhat, int mut, char towhat);
 
+	int oneSidedMutations(Fasta *other);
+	int sharedMutations(Fasta *other);
+
 	std::string mutationSummary();
+	void sortMutations();
 
 	std::string generateSequence();
 	bool roughlyAlign(std::string mine, std::string ref, int minRes);
 	std::string roughCompare(std::string seq, int minRes);
-	void loadMutations(std::string muts);
+	void loadMutations(std::string muts, std::string ref);
+
+	void leftJustifyDeletions();
+
+	void giveMenu(QMenu *m, FastaGroup *g);
+	
+	void setLastValue(std::string v)
+	{
+		_lastValue = v;
+	}
+	
+	std::string lastValue()
+	{
+		return _lastValue;
+	}
+signals:
+	void refreshMutations();
+public slots:
+	void setIsProblematic();
 private:
+	void refreshToolTips();
+	void organiseMap();
+	std::string deletionSequence(int start, int end, int go_back);
+	void nudgeMap(int start, int dir);
+
 	bool _compared;
 	bool _problematic;
 	int _orf;
@@ -96,8 +135,12 @@ private:
 	std::string _name;
 	std::string _seq;
 	std::string _result;
+	std::string _ref;
+	std::string _lastValue;
 	
 	std::vector<std::string> _mutations;
+	IntMap _meToRef;
+	IntMap _refToMe;
 };
 
 #endif

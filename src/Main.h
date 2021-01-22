@@ -85,11 +85,12 @@ public slots:
 	void writeMutations();
 	void prepareSlidingWindow();
 	void loadStructures();
+	void makeDifference();
 	void setChosenAsReference();
 	void clickedStructure();
 	void clickedDifference();
+	void fastaMenu(const QPoint &p);
 	void structureMenu(const QPoint &p);
-	void makeDifference();
 protected:
 	virtual void resizeEvent(QResizeEvent *e);
 private:

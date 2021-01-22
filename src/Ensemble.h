@@ -29,6 +29,7 @@ class Icosahedron;
 
 class Atom;
 typedef boost::shared_ptr<Atom> AtomPtr;
+typedef std::vector<AtomPtr> AtomList;
 
 /******************** Crystal definition ***************************/
 namespace Vagabond
@@ -85,10 +86,14 @@ public:
 		return _segments.size();
 	}
 	
+	std::string selectedMutation();
+	
 	Segment *segment(int i)
 	{
 		return _segments[i];
 	}
+	
+	std::string whichMutation(double x, double y);
 	
 	void setSegments(std::vector<Segment *> segments)
 	{
@@ -117,6 +122,7 @@ public:
 
 	size_t makeBalls();
 	bool processFasta(Fasta *f, std::string requirements = "");
+	bool shouldProcess(Fasta *f, std::string requirements = "");
 	void clearBalls();
 
 	void minMaxResidues(std::string ch, int *min, int *max);
@@ -129,13 +135,17 @@ private:
 	std::vector<Segment *> _segments;
 	std::vector<Icosahedron *> _balls;
 	std::vector<Text *> _texts;
-	std::map<AtomPtr, Icosahedron *> _ballMap;
+	std::map<Icosahedron *, std::string> _ballMap;
 	std::map<AtomPtr, Text *> _textMap;
 	std::map<int, std::vector<std::string> > _muts;
+	
+	Icosahedron *_selected;
+
 	int _fastaCount;
 	void findChains();
 	void convertToBezier();
 	CrystalPtr _crystal;
+	AtomList _cas;
 
 	bool _isReference;
 	std::string _name;

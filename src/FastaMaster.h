@@ -26,6 +26,7 @@
 class Fasta;
 class QMenu;
 class Ensemble;
+class FastaGroup;
 class StructureView;
 
 typedef std::map<std::string, std::string> KeyValue;
@@ -46,38 +47,63 @@ public:
 
 	void addFasta(Fasta *f);
 	
-	size_t fastaCount()
-	{
-		return _fastas.size();
-	}
+	size_t fastaCount();
+	Fasta *fasta(int i);
+	
+	bool hasKey(std::string key);
+	bool fastaHasKey(Fasta *f, std::string key);
+	std::string valueForKey(Fasta *f, std::string key);
 	
 	void setReference(Ensemble *e);
+	
+	Ensemble *getReference()
+	{
+		return _ref;
+	}
 
-	void writeOutFastas(std::string filename, bool all = true);
+	Fasta *selectedFasta();
+	FastaGroup *selectedGroup();
+
+	void writeOutFastas(std::string filename);
 	void writeOutMutations(std::string filename, bool all = true);
-	void writeCluster4xFile(std::string filename);
 	void loadMetadata(std::string metadata);
 	void checkForMutations();
 	void checkForMutation(Fasta *f);
 	
 	void reorderBy(std::string title);
-	std::string valueForKey(Fasta *f, std::string key);
+	
+	size_t titleCount()
+	{
+		return _titles.size();
+	}
+	
+	std::string title(int i)
+	{
+		return _titles[i];
+	}
+
 	void slidingWindowHighlight(StructureView *view,
 	                            std::string folder, size_t window_size,
 	                            std::string requirements, bool over);
 
 	void makeMenu(QMenu *m);
 	
-	void requireMutation(std::string reqs)
+	FastaGroup *topGroup()
 	{
-		_requirements = reqs;
+		return _top;
 	}
+
+	
+	bool isReference(Fasta *fasta);
 public slots:
+	void requireMutation(std::string reqs);
 	void highlightMutations();
 	void clearMutations();
 	void clear();
+protected:
+	virtual void itemClicked(QTreeWidgetItem *item, int column);
+
 private:
-	void highlightRange(int start, int end);
 
 	int _req;
 	int _minRes;
@@ -91,6 +117,11 @@ private:
 	std::vector<Fasta *> _subfastas;
 	std::string _lastOrdered;
 	std::string _requirements;
+	
+	FastaGroup *_top;
+
+//typedef std::map<Fasta *, KeyValue> FastaKeys;
+//typedef std::map<std::string, std::string> KeyValue;
 	
 	FastaNames _names;
 	FastaKeys _keys;
