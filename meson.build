@@ -1,4 +1,4 @@
-project('breathalyser', 'cpp', 'c')
+project('splitseq', 'cpp', 'c')
 qt5 = import('qt5')
 
 qt5_dep = dependency('qt5', modules: ['Core', 'Gui', 'Widgets'], required : true)
@@ -43,11 +43,12 @@ moc_files = qt5.preprocess(moc_headers : [
 'src/LoadFastas.h', 
 'src/LoadStructure.h', 
 'src/SlidingWindow.h', 
+'src/SequenceView.h', 
 'src/Segment.h', 
 ],
 		moc_extra_arguments: ['-DMAKES_MY_MOC_HEADER_COMPILE'])
 
-executable('breathalyser', gen_src, moc_files,
+executable('splitseq', gen_src, moc_files,
 'src/Arrow.cpp', 
 'src/CoupleDisplay.cpp', 
 'src/DiffDisplay.cpp', 
@@ -62,6 +63,7 @@ executable('breathalyser', gen_src, moc_files,
 'src/MutationWindow.cpp', 
 'src/MyDictator.cpp', 
 'src/Segment.cpp', 
+'src/SequenceView.cpp', 
 'src/SlidingWindow.cpp', 
 'src/StructureView.cpp', 
 'src/WidgetFasta.cpp', 

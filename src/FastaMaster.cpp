@@ -17,6 +17,7 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include "StructureView.h"
+#include "SequenceView.h"
 #include "WidgetFasta.h"
 #include "FastaMaster.h"
 #include "FastaGroup.h"
@@ -31,9 +32,11 @@
 #include <QMenu>
 
 #include <hcsrc/FileReader.h>
+#include <h3dsrc/Dialogue.h>
 
 FastaMaster::FastaMaster(QWidget *parent) : QTreeWidget(parent)
 {
+	_seqView = NULL;
 	_top = new FastaGroup(this);
 	_top->setPermanent(true);
 	addTopLevelItem(_top);
@@ -107,11 +110,6 @@ void FastaMaster::addFasta(Fasta *f)
 	_fastas.push_back(f);
 	_names[f->name()] = f;
 	
-	if (_nameKeys.count(f->name()))
-	{
-		_keys[f] = _nameKeys[f->name()];
-	}
-	
 	if (_fastas.size() > 1)
 	{
 		if (f->hasResult())
@@ -182,7 +180,6 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 		KeyValue kv;
 
 		trim(components[0]);
-		Fasta *which = _names[components[0]];
 		
 		if (_nameKeys.count(components[0]))
 		{
@@ -202,13 +199,6 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 			skip++;
 			continue;
 		}
-		
-		if (which == NULL)
-		{
-			continue;
-		}
-		
-		_keys[which] = kv;
 
 		count++;
 	}
@@ -220,7 +210,14 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 	std::cout << "Titles are: " << std::endl;
 	
 	_titles.reserve(_titles.size() + tmpTitles.size());
-	_titles.insert(_titles.begin(), tmpTitles.begin(), tmpTitles.end());
+	
+	for (size_t i = 0; i < tmpTitles.size(); i++)
+	{
+		if (!hasKey(tmpTitles[i]))
+		{
+			_titles.push_back(tmpTitles[i]);
+		}
+	}
 	
 	for (size_t i = 0; i < _titles.size(); i++)
 	{
@@ -232,13 +229,12 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 
 void FastaMaster::requireMutation(std::string reqs)
 {
-	FastaGroup *g = selectedGroup();
 	if (selectedGroup() == NULL)
 	{
-		g = _top;
+		setTopAsCurrent();
 	}
 
-	g->makeRequirementGroup(reqs);
+	selectedGroup()->makeRequirementGroup(reqs);
 }
 
 void FastaMaster::checkForMutation(Fasta *f)
@@ -248,10 +244,13 @@ void FastaMaster::checkForMutation(Fasta *f)
 		return;
 	}
 
-	if (_keys[f].count("mutations"))
+	if (_nameKeys[f->name()].count("mutations"))
 	{
-		std::string val = _keys[f]["mutations"];
+		std::string val = _nameKeys[f->name()]["mutations"];
 		f->loadMutations(val, fasta(0)->result());
+		
+		std::string new_val = f->mutationSummary();
+		_nameKeys[f->name()]["mutations"] = new_val;
 	}
 }
 
@@ -278,6 +277,7 @@ void FastaMaster::clearMutations()
 void FastaMaster::highlightMutations()
 {
 	std::cout << "Highlighting mutations." << std::endl;
+
 	if (_fastas.size() == 0)
 	{
 		std::cout << "No fastas to highlight with." << std::endl;
@@ -343,19 +343,17 @@ void FastaMaster::slidingWindowHighlight(StructureView *view,
 		if (_lastOrdered.length())
 		{
 			key = _lastOrdered + "_";
-			std::string value = _keys[_fastas[i]][_lastOrdered];
+			std::string value = valueForKey(_fastas[i], _lastOrdered);
 			key += value;
 			
-			int end = i + window;
 			if (i + window > _fastas.size())
 			{
-				end = _fastas.size() - 1;
 				value += " to end";
 			}
 			else
 			{
 				value += " to ";
-				value += _keys[_fastas[end]][_lastOrdered];
+				value += valueForKey(_fastas[i], _lastOrdered);
 			}
 
 
@@ -406,9 +404,25 @@ Fasta *FastaMaster::fasta(int i)
 	return _top->fasta(i);
 }
 
+void FastaMaster::makeGroupMenu(QMenu *m)
+{
+	std::cout << "Bleh" << std::endl;
+	QMenu *submenu = m->addMenu(tr("&Relative population CSV..."));
+
+	for (size_t i = 0; i < _titles.size(); i++)
+	{
+		QString qTitle = QString::fromStdString(_titles[i]);
+
+		QAction *act = submenu->addAction(qTitle);
+		connect(act, &QAction::triggered, 
+		        this, [=]() { makeCurves(_titles[i]); });
+	}
+}
+
 void FastaMaster::makeMenu(QMenu *m)
 {
 	m->clear();
+
 	QMenu *submenu = m->addMenu(tr("&Reorder by..."));
 	
 	for (size_t i = 0; i < _titles.size(); i++)
@@ -428,6 +442,24 @@ void FastaMaster::setReference(Ensemble *e)
 	_ref = e;
 	_top->setEnsemble(_ref);
 	_refSeq = e->generateSequence(_ref->chain(0), &_minRes);
+}
+
+std::vector<FastaGroup *> FastaMaster::selectedGroups()
+{
+	std::vector<FastaGroup *> groups;
+	QList<QTreeWidgetItem *> items = selectedItems();
+	
+	for (int i = 0; i < items.size(); i++)
+	{
+		QTreeWidgetItem *item = items[i];
+		FastaGroup *g = dynamic_cast<FastaGroup *>(item);
+		if (g != NULL)
+		{
+			groups.push_back(g);
+		}
+	}
+
+	return groups;
 }
 
 FastaGroup *FastaMaster::selectedGroup()
@@ -461,11 +493,18 @@ Fasta *FastaMaster::selectedFasta()
 void FastaMaster::itemClicked(QTreeWidgetItem *item, int column)
 {
 	FastaGroup *grp = selectedGroup();
-	if (grp)
+	if (grp != NULL)
 	{
 		grp->highlightRange();
+		_seqView->populate(grp);
 	}
 
+	Fasta *f = selectedFasta();
+	
+	if (f != NULL && _seqView != NULL)
+	{
+		_seqView->populate(f);
+	}
 }
 
 bool FastaMaster::fastaHasKey(Fasta *f, std::string key)
@@ -502,3 +541,26 @@ bool FastaMaster::isReference(Fasta *f)
 {
 	return _top->fastaCount() && f == _top->fasta(0);
 }
+
+void FastaMaster::makeCurves(std::string title)
+{
+	std::string filename = openDialogue(this, "Write CSV file", 
+	                                    "Comma separated values (*.csv)", 
+	                                    false);
+
+	makeCurvesForFilename(filename, title);
+}
+
+void FastaMaster::makeCurvesForFilename(std::string filename, 
+                                        std::string title)
+{
+	std::vector<FastaGroup *> groups = selectedGroups();
+	std::cout << groups.size() << std::endl;
+	FastaGroup::makeCurve(groups, title, filename);
+}
+
+void FastaMaster::setTopAsCurrent()
+{
+	setCurrentItem(_top);
+}
+

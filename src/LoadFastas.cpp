@@ -102,6 +102,32 @@ void LoadFastas::loadFastas(std::string filename, int start, int end)
 	loadSequence(filename, start, end, protein);
 }
 
+std::string makeSeq(std::vector<std::string> &lines, size_t *next)
+{
+	bool found_end = false;
+	std::string seq = "";
+
+	while (!found_end)
+	{
+		seq += lines[*next];
+		
+		while (seq.length() && (seq.back() < 'A' || seq.back() > 'Z'))
+		{
+			seq.pop_back();
+		}
+
+		(*next)++;
+		
+		if (*next >= lines.size() || lines[*next][0] == '>')
+		{
+			(*next)--;
+			return seq;
+		}
+	}
+
+	return "";
+}
+
 void LoadFastas::loadSequence(std::string filename, int start, int end,
                               bool isProtein)
 {
@@ -117,6 +143,7 @@ void LoadFastas::loadSequence(std::string filename, int start, int end,
 	std::vector<std::string> lines = split(results, '\n');
 	
 	std::cout << "Focus: " << start << " " << end << std::endl;
+	int count = 0;
 	
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -127,25 +154,28 @@ void LoadFastas::loadSequence(std::string filename, int start, int end,
 
 		std::string name = lines[i].substr(1);
 		
-		std::string seq;
-		if (start < 0 && end < 0)
+		if (name.back() == '\n' || name.back() == '\r')
 		{
-			seq = lines[i + 1];
+			name.pop_back();
 		}
-		else
+
+		i++;
+		std::string seq = makeSeq(lines, &i);
+		
+		if (!(start < 0 && end < 0))
 		{
-			if ((int)lines[i + 1].length() < end)
+			if ((int)seq.length() < end)
 			{
-				if ((int)lines[i + 1].length() < start)
+				if ((int)seq.length() < start)
 				{
 					continue;
 				}
 
-				seq = lines[i + 1].substr(start);
+				seq = seq.substr(start);
 			}
 			else
 			{
-				seq = lines[i + 1].substr(start, end - start);
+				seq = seq.substr(start, end - start);
 			}
 		}
 		
@@ -154,11 +184,12 @@ void LoadFastas::loadSequence(std::string filename, int start, int end,
 			continue;
 		}
 		
+		count++;
 		Fasta *f = new Fasta(name);
+		std::cout << count << ": Found " << name << std::endl;
 		f->setSequence(seq, isProtein);
 		
 		_main->receiveSequence(f);
-		i++;
 	}
 	
 	_main->makeSequenceMenu();

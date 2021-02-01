@@ -26,7 +26,9 @@
 class Fasta;
 class QMenu;
 class Ensemble;
+class CurveView;
 class FastaGroup;
+class SequenceView;
 class StructureView;
 
 typedef std::map<std::string, std::string> KeyValue;
@@ -63,6 +65,7 @@ public:
 
 	Fasta *selectedFasta();
 	FastaGroup *selectedGroup();
+	std::vector<FastaGroup *> selectedGroups();
 
 	void writeOutFastas(std::string filename);
 	void writeOutMutations(std::string filename, bool all = true);
@@ -71,6 +74,19 @@ public:
 	void checkForMutation(Fasta *f);
 	
 	void reorderBy(std::string title);
+	
+	void makeCurves(std::string title);
+	void makeCurvesForFilename(std::string filename, std::string title);
+	
+	CurveView *curveView()
+	{
+		return _cView;
+	}
+	
+	void setCurveView(CurveView *cView)
+	{
+		_cView = cView;
+	}
 	
 	size_t titleCount()
 	{
@@ -87,6 +103,9 @@ public:
 	                            std::string requirements, bool over);
 
 	void makeMenu(QMenu *m);
+	void makeGroupMenu(QMenu *m);
+	
+	void setTopAsCurrent();
 	
 	FastaGroup *topGroup()
 	{
@@ -95,6 +114,11 @@ public:
 
 	
 	bool isReference(Fasta *fasta);
+	
+	void setSequenceView(SequenceView *view)
+	{
+		_seqView = view;
+	}
 public slots:
 	void requireMutation(std::string reqs);
 	void highlightMutations();
@@ -119,12 +143,14 @@ private:
 	std::string _requirements;
 	
 	FastaGroup *_top;
+	SequenceView *_seqView;
+	
+	CurveView *_cView;
 
 //typedef std::map<Fasta *, KeyValue> FastaKeys;
 //typedef std::map<std::string, std::string> KeyValue;
 	
 	FastaNames _names;
-	FastaKeys _keys;
 	NameKeys _nameKeys;
 };
 

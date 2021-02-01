@@ -19,6 +19,8 @@
 #include <algorithm>
 
 #include "FastaGroup.h"
+#include "Curve.h"
+#include "CurveView.h"
 #include "FastaMaster.h"
 #include "WidgetFasta.h"
 #include "Fasta.h"
@@ -26,6 +28,7 @@
 #include <QMenu>
 #include <QStyledItemDelegate>
 #include <hcsrc/FileReader.h>
+#include <h3dsrc/Dialogue.h>
 #include <c4xsrc/ClusterList.h>
 #include <c4xsrc/AveCSV.h>
 #include <c4xsrc/Group.h>
@@ -54,6 +57,18 @@ FastaGroup::FastaGroup(FastaGroup *group) : QTreeWidgetItem(group)
 	_group = group;
 	_master = group->_master;
 	initialise();
+}
+
+std::string FastaGroup::shortText()
+{
+	if (_requirements.length())
+	{
+		std::string str = _requirements;
+		replace(str.begin(), str.end(), ',', '+');
+		return str;
+	}
+
+	return generateText();
 }
 
 std::string FastaGroup::generateText()
@@ -182,6 +197,7 @@ void FastaGroup::highlightRange(int start, int end)
 		if (count > stages + per_stage)
 		{
 			std::cout << "." << std::flush;
+			stages += per_stage;
 		}
 
 		_ensemble->processFasta(fasta(j), _requirements);
@@ -312,6 +328,10 @@ void FastaGroup::giveMenu(QMenu *m)
 	
 	act = m->addAction("Split using cluster4x");
 	connect(act, &QAction::triggered, this, &FastaGroup::prepareCluster4x);
+	
+	act = m->addAction("Write alignments to file");
+	connect(act, &QAction::triggered, this, 
+	        [=]() { writeAlignments(""); });
 
 	if (!_permanent)
 	{
@@ -335,14 +355,25 @@ void FastaGroup::removeGroup()
 
 void FastaGroup::prepareCluster4x()
 {
+	if (_screen != NULL)
+	{
+		_screen->hide();
+		_screen->deleteLater();
+	}
+	_screen = new Screen(NULL);
+	_screen->setWindowTitle("cluster4x - splitseq");
+	_screen->setReturnJourney(this);
+
 	AveCSV *csv = new AveCSV(NULL, "");
+	ClusterList *list = _screen->getList();
+	csv->setList(list);
 	csv->startNewCSV("Sequence similarity");
 	
 	std::vector<Fasta *> copy = _fastas;
 	
 	std::random_shuffle(copy.begin(), copy.end());
 	
-	int limit = 1000 + 1;
+	size_t limit = 1000 + 1;
 	if (limit > copy.size())
 	{
 		limit = copy.size();
@@ -365,17 +396,6 @@ void FastaGroup::prepareCluster4x()
 			csv->addValue(copy[j]->name(), copy[i]->name(), score);
 		}
 	}
-
-	if (_screen != NULL)
-	{
-		_screen->hide();
-		_screen->deleteLater();
-	}
-	_screen = new Screen(NULL);
-	_screen->setWindowTitle("cluster4x - sequins");
-	_screen->setReturnJourney(this);
-	ClusterList *list = _screen->getList();
-	csv->setList(list);
 	csv->preparePaths();
 	csv->setChosen(0);
 
@@ -428,7 +448,7 @@ void FastaGroup::finished()
 
 void FastaGroup::refreshToolTips()
 {
-	for (size_t i = 0; i < childCount(); i++)
+	for (int i = 0; i < childCount(); i++)
 	{
 		WidgetFasta *wf = dynamic_cast<WidgetFasta *>(child(i));
 		
@@ -466,19 +486,19 @@ void FastaGroup::writeOutFastas(std::string filename)
 	<< fastaCount() << " total." << std::endl;
 }
 
-void FastaGroup::reorderBy(std::string title)
+bool FastaGroup::reorderBy(std::string title)
 {
 	if (!_master->hasKey(title))
 	{
 		std::cout << "Cannot find title (" << title << 
 		") in database." << std::endl;
-		return;
+		return false;
 	}
 	
 	if (fastaCount() == 0)
 	{
 		std::cout << "Nothing in group." << std::endl;
-		return;
+		return false;
 	}
 
 	Fasta *ref = fasta(0);
@@ -508,6 +528,7 @@ void FastaGroup::reorderBy(std::string title)
 	
 	_lastOrdered = title;
 	refreshToolTips();
+	return true;
 }
 
 void FastaGroup::split(std::string title, int bins, bool reorder)
@@ -559,3 +580,257 @@ void FastaGroup::split(std::string title, int bins, bool reorder)
 	}
 }
 
+void FastaGroup::countMutations()
+{
+	if (_mutCounts.size() > 0)
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		for (size_t j = 0; j < fasta(i)->mutationCount(); j++)
+		{
+			std::string mut = fasta(i)->mutation(j);
+			_mutCounts[mut]++;
+		}
+	}
+	
+	std::map<std::string, int>::iterator it;
+	std::vector<MutInt> mints;
+
+	for (it = _mutCounts.begin(); it != _mutCounts.end(); it++)
+	{
+		MutInt mi;
+		mi.mut = it->first;
+		mi.resi = it->second;
+		mints.push_back(mi);
+	}
+
+	std::sort(mints.begin(), mints.end(), resi_less);
+	
+	for (int i = mints.size() - 1; i >= 0; i--)
+	{
+		_muts.push_back(mints[i].mut);
+	}
+}
+
+int FastaGroup::lostMutations(size_t total)
+{
+	int count = 0;
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		Fasta *f = fasta(i);
+		
+		int ticked = 0;
+		for (size_t j = 0; j < total; j++)
+		{
+			ticked += f->hasMutation(_muts[j]);
+		}
+		
+		int remainder = total - ticked;
+		remainder += (f->mutationCount() - ticked);
+		count += remainder;
+	}
+
+	return count;
+}
+
+std::string FastaGroup::countDescription()
+{
+	countMutations();
+	int last_score = INT_MAX;
+	
+	int result = 0;
+	for (size_t i = 0; i < _muts.size(); i++)
+	{
+		int score = lostMutations(i);
+		
+		if (score < last_score)
+		{
+			last_score = score;
+		}
+		else
+		{
+			result = i - 1;
+			std::cout << "Stopped on " << result << std::endl;
+			break;
+		}
+	}
+	
+	if (result == 0)
+	{
+		return "";
+	}
+	
+	std::string str;
+	for (int i = 0; i < result; i++)
+	{
+		str += _muts[i] + " ";
+	}
+
+	str.pop_back();
+
+	return str;
+}
+
+void FastaGroup::titleLimits(double *min, double *max)
+{
+	if (fastaCount() <= 1)
+	{
+		return;
+	}
+	
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		std::string str = _master->valueForKey(fasta(i), _lastOrdered);
+		if (str.length() == 0)
+		{
+			continue;
+		}
+
+		double val = atof(str.c_str());
+		if (*min > val)
+		{
+			*min = val;
+		}
+		
+		if (*max < val)
+		{
+			*max = val;
+		}
+	}
+	
+}
+
+int FastaGroup::numberBetween(double min, double max)
+{
+	int counts = 0;
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		std::string val = _master->valueForKey(fasta(i), _lastOrdered);
+		double dval = atof(val.c_str());
+		if (dval < max && dval >= min)
+		{
+			counts++;
+		}
+	}
+	
+	return counts;
+}
+
+void FastaGroup::makeCurve(std::vector<FastaGroup *> groups,
+                           std::string title, std::string filename)
+{
+	if (filename.length() == 0)
+	{
+		std::cout << "No filename" << std::endl;
+		return;
+	}
+	if (groups.size() == 0)
+	{
+		std::cout << "No groups selected." << std::endl;
+		return;
+	}
+
+	double min = FLT_MAX;
+	double max = -FLT_MAX;
+	for (size_t i = 0; i < groups.size(); i++)
+	{
+		groups[i]->_lastOrdered = title;
+		groups[i]->titleLimits(&min, &max);
+	}
+	
+	std::ofstream file;
+	file.open(filename);
+	double step = 3;
+
+	file << title << ", ";
+	for (size_t i = 0; i < groups.size(); i++)
+	{
+		file << groups[i]->shortText() << ", ";
+	}
+	file << std::endl;
+	
+	std::cout << "From " << min << " " << max << std::endl;
+	FastaMaster *m = groups[0]->_master;
+	m->topGroup()->_lastOrdered = title;
+
+	for (double d = min; d < max; d++)
+	{
+		int total = m->topGroup()->numberBetween(d - step, d + step);
+		
+		if (total == 0)
+		{
+			continue;
+		}
+
+		std::vector<int> each;
+		for (size_t i = 0; i < groups.size(); i++)
+		{
+			if (groups[i] == m->topGroup())
+			{
+				each.push_back(0);
+				continue;
+			}
+
+			int num = groups[i]->numberBetween(d - step, d + step);
+			each.push_back(num);
+		}
+		
+		file << d << ", ";
+		for (size_t i = 0; i < groups.size(); i++)
+		{
+			if (groups[i] == m->topGroup())
+			{
+				continue;
+			}
+
+			double prop = each[i];
+			prop /= (double)total;
+			file << prop << ", ";
+		}
+		
+		file << std::endl;
+	}
+	
+	file.close();
+}
+
+void FastaGroup::writeAlignments(std::string filename)
+{
+	if (filename.length() == 0)
+	{
+		filename = openDialogue(NULL, "Write alignment file", 
+		                        "Text file (*.txt)", false);
+
+		if (!checkFileIsValid(filename, true))
+		{
+			return;
+		}
+	}
+
+	std::ofstream aligns;
+	aligns.open(filename);
+	
+	int count = 0;
+	
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		if (!fasta(i)->hasResult())
+		{
+			std::cout << "Skipping " << fasta(i)->name()
+			<< " as could not locate protein sequence." << std::endl;
+			continue;
+		}
+		
+		fasta(i)->writeAlignment(aligns);
+		count++;
+	}
+	
+	aligns.close();
+
+	std::cout << "Written out " << count << " fastas of " 
+	<< fastaCount() << " total." << std::endl;
+
+}

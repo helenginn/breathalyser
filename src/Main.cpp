@@ -25,6 +25,7 @@
 #include <fstream>
 
 #include <h3dsrc/Dialogue.h>
+#include <h3dsrc/CurveView.h>
 
 #include "SlidingWindow.h"
 #include "FastaMaster.h"
@@ -36,6 +37,7 @@
 #include "MyDictator.h"
 #include "LoadStructure.h"
 #include "MutationWindow.h"
+#include "SequenceView.h"
 #include "LoadFastas.h"
 #include "Fasta.h"
 #include "Ensemble.h"
@@ -71,20 +73,35 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 	_fMaster->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	treeout->addWidget(_fMaster);
 
+	/*
+	_curveTree = new QTreeWidget(NULL);
+	_curveTree->setHeaderLabel("Curves");
+	_curveTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	_curveTree->setContextMenuPolicy(Qt::CustomContextMenu);
+	_curveTree->setMaximumSize(QSize(250, 500));
+	*/
+
 	_seqMenu = NULL;
 
-//	treeout->addWidget(_pdbTree);
-//	treeout->addWidget(_diffTree);
 	layout->addItem(treeout);
 
 	_tabs = new QTabWidget(window);
 	layout->addWidget(_tabs);
+//	connect(_tabs, QTabWidget::currentChanged, this, &Main::tabChanged);
 	
 	setCentralWidget(window);
 
 	_view = new StructureView(NULL);
 	_view->setMain(this);
-	_tabs->addTab(_view, "Structure view");
+	_tabs->addTab(_view, "Structure");
+
+	_seqView = new SequenceView(NULL, _fMaster);
+	_seqView->setMain(this);
+	_tabs->addTab(_seqView, "Sequence");
+
+	_curveView = new CurveView(NULL);
+	_fMaster->setCurveView(_curveView);
+	_tabs->addTab(_curveView, "Graphs");
 
 	_diff = new DiffDisplay(NULL, NULL);
 	_diff->setMain(this);
@@ -426,6 +443,14 @@ void Main::fastaMenu(const QPoint &p)
 {
 	QMenu *m = new QMenu();
 	QPoint pos = centralWidget()->mapToGlobal(p);
+	
+	if (_fMaster->selectedItems().size() > 1)
+	{
+		_fMaster->makeGroupMenu(m);
+		m->exec(pos);
+		return;
+	}
+
 	FastaGroup *group = _fMaster->selectedGroup();
 
 	if (group != NULL)
@@ -442,3 +467,7 @@ void Main::fastaMenu(const QPoint &p)
 	m->exec(pos);
 }
 
+void Main::tabChanged(int i)
+{
+
+}

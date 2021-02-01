@@ -78,6 +78,7 @@ public:
 	void giveMenu(QMenu *m);
 	void highlightRange(int start = 0, int end = 0);
 	void writeOutFastas(std::string filename);
+	void writeAlignments(std::string filename);
 
 	typedef struct
 	{
@@ -88,10 +89,16 @@ public:
 	virtual void finished();
 
 	void refreshToolTips();
+	std::string generateText();
+	std::string shortText();
+	std::string countDescription();
+
+	static void makeCurve(std::vector<FastaGroup *> groups,
+	                      std::string title, std::string filename);
 public slots:
 	void split(std::string title, int bins, bool reorder);
 	void makeRequirementGroup(std::string reqs);
-	void reorderBy(std::string title);
+	bool reorderBy(std::string title);
 	void prepareCluster4x();
 	void selectInverse();
 	void removeGroup();
@@ -102,14 +109,18 @@ protected:
                               const QModelIndex &index );
 
 private:
+	void countMutations();
+	int lostMutations(size_t total);
 	static bool smaller_value(const FastaGroup::FastaValue &v1, 
 	                          const FastaGroup::FastaValue &v2);
+
+	void titleLimits(double *min, double *max);
+	int numberBetween(double min, double max);
 	
 	Screen *_screen;
 
 	void clearFastas();
 
-	std::string generateText();
 	std::vector<Fasta *> _fastas;
 	std::string _requirements;
 
@@ -123,6 +134,8 @@ private:
 	std::string _lastOrdered;
 
 	std::string _customName;
+	std::map<std::string, int> _mutCounts;
+	std::vector<std::string> _muts;
 };
 
 #endif

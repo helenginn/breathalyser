@@ -11,7 +11,6 @@ int main(int argc, char * argv[])
 	std::cout << "Qt version: " << qVersion() << std::endl;
 	
 	QSurfaceFormat fmt;
-
 	if (QOpenGLContext::openGLModuleType() == QOpenGLContext::LibGL) 
 	{
 		std::cout << "OpenGL 3.3 context" << std::endl;

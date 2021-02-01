@@ -636,9 +636,9 @@ size_t Ensemble::makeBalls()
 		double counts = _muts[resNum].size();
 
 		double pct = 100 * counts / (double)_fastaCount;
-		double pct100 = 10 * pct;
+		double pct100 = 100 * pct;
 		
-		double inflate = log(pct100) / log(10);
+		double inflate = log(pct100) / log(100);
 		
 		/* no negatives! */
 		if (inflate < 0)
@@ -656,7 +656,7 @@ size_t Ensemble::makeBalls()
 			str += f_to_str(pct, 1) + "%";
 			Text *text = new Text();
 			text->setProperties(abs, str, 64, Qt::black,
-			                    0, 20, -20);
+			                    0, 2, -10);
 			text->prepare();
 			_texts.push_back(text);
 			_textMap[_cas[i]] = text;

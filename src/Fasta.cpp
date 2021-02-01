@@ -21,10 +21,13 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <QMenu>
 #include <hcsrc/Blast.h>
 #include <hcsrc/FileReader.h>
+
+bool Fasta::_justify = false;
 
 inline bool isAddition(std::string m)
 {
@@ -287,7 +290,7 @@ bool Fasta::roughlyAlign(std::string mine, std::string ref, int minRes)
 	{
 		std::string probe = ref.substr(i, size);
 
-		if (probe.length() < size)
+		if ((int)probe.length() < size)
 		{
 			break;
 		}
@@ -323,7 +326,7 @@ bool Fasta::roughlyAlign(std::string mine, std::string ref, int minRes)
 			
 			/* but this might be too much */
 			
-			if ((int)end - (int)beginning > mine.length())
+			if (end - beginning > (int)mine.length())
 			{
 				end = mine.length() - beginning;
 			}
@@ -331,8 +334,6 @@ bool Fasta::roughlyAlign(std::string mine, std::string ref, int minRes)
 			_result = mine.substr(beginning, end);
 			_offset = minRes;
 			_seq.clear();
-
-//			std::cout << "Found " << name() << ", offset " << _offset << std::endl;
 			return true;
 		}
 	}
@@ -355,7 +356,6 @@ std::string Fasta::roughCompare(std::string ref, int minRes)
 	while (findNextORF())
 	{
 		std::string seq = generateSequence();
-		size_t size = 10;
 		
 		if (roughlyAlign(seq, ref, minRes))
 		{
@@ -397,6 +397,17 @@ void Fasta::carefulCompareWithFasta(Fasta *f)
 	carefulCompareWithString(f->result());
 }
 
+void Fasta::writeAlignment(std::ofstream &file)
+{
+	file << ">" << name() << std::endl;
+	/*
+	file << _left << std::endl;
+	file << _align << std::endl;
+	file << _right << std::endl;
+	file << std::endl;
+	*/
+}
+
 void Fasta::carefulCompareWithString(std::string seq2)
 {
 	std::string seq1 = result();
@@ -410,6 +421,9 @@ void Fasta::carefulCompareWithString(std::string seq2)
 
 	_ref = seq2;
 	Alignment ala, alb;
+	std::string fake = "fake";
+	setup_alignment(&ala, fake);
+	setup_alignment(&alb, fake);
 	int muts, dels;
 	srand(1);
 	compare_sequences_and_alignments(seq1, seq2, &muts, &dels, ala, alb, 2);
@@ -419,25 +433,20 @@ void Fasta::carefulCompareWithString(std::string seq2)
 	std::vector<int> indices;
 	print_alignments(ala, alb, ssleft, ssalign, ssright, indices);
 	
-	std::string left =   ssleft.str();
-	std::string align = ssalign.str();
-	std::string right = ssright.str();
+	delete_alignment(&ala);
+	delete_alignment(&alb);
 	
-	/*
-	std::cout << name() << std::endl;
-	std::cout << left << std::endl;
-	std::cout << align << std::endl;
-	std::cout << right << std::endl;
-	std::cout << std::endl;
-	*/
+	_left =   ssleft.str();
+	_align = ssalign.str();
+	_right = ssright.str();
 	
 	int running = 0;
 	int offset = 0;
 	int plus = 0;
 
-	for (size_t i = 0; i < align.size(); i++)
+	for (size_t i = 0; i < _align.size(); i++)
 	{
-		if (align[i] == '.' || align[i] == '*')
+		if (_align[i] == '.' || _align[i] == '*')
 		{
 			offset += running;
 			running = 0;
@@ -445,27 +454,27 @@ void Fasta::carefulCompareWithString(std::string seq2)
 
 		offset = 0;
 
-		if (align[i] == '.')
+		if (_align[i] == '.')
 		{
 			continue;
 		}
 
-		if (align[i] == '*')
+		if (_align[i] == '*')
 		{
-			addMutation(right[i], indices[i] + offset, left[i]);
+			addMutation(_right[i], indices[i] + offset, _left[i]);
 			continue;
 		}
 		
-		if (align[i] == '+')
+		if (_align[i] == '+')
 		{
-			addMutation(left[i], indices[i] + offset, '+');
+			addMutation(_left[i], indices[i] + offset, '+');
 			running--;
 			plus++;
 		}
 		
-		if (align[i] == '-')
+		if (_align[i] == '-')
 		{
-			addMutation(right[i], indices[i] + offset, '-');
+			addMutation(_right[i], indices[i] + offset, '-');
 			running++;
 		}
 		
@@ -482,6 +491,10 @@ void Fasta::carefulCompareWithString(std::string seq2)
 
 void Fasta::leftJustifyDeletions()
 {
+	if (!_justify)
+	{
+		return;
+	}
 	sortMutations();
 	
 	for (size_t i = 0; i < mutationCount(); i++)
@@ -557,19 +570,15 @@ void Fasta::leftJustifyDeletions()
 			continue;
 		}
 		
-//		std::cout << "Decrementing " << count << ": ";
-		
 		for (size_t j = i; j < i + count; j++)
 		{
-			//std::cout << _mutations[j] << ", ";
-			decrementResidue(_mutations[j], go_back);
+			std::string mut = _mutations[j];
+			decrementResidue(mut, go_back);
+			_mutations[j] = mut;
 		}
-
-		//std::cout << std::endl;
 
 		i += count - 1;
 	}
-
 }
 
 std::string Fasta::deletionSequence(int start, int end, int go_back)
@@ -581,10 +590,16 @@ std::string Fasta::deletionSequence(int start, int end, int go_back)
 	start -= go_back;
 	end -= go_back;
 
-	for (size_t i = left; i <= right; i++)
+	for (int i = left; i <= right; i++)
 	{
 		if (i >= start && i < end)
 		{
+			continue;
+		}
+
+		if (i < 0 || i >= (int)_ref.length())
+		{
+			seq += "?";
 			continue;
 		}
 
@@ -661,18 +676,6 @@ void Fasta::organiseMap()
 			_meToRef[it->second] = it->first;
 		}
 	}
-}
-
-
-typedef struct
-{
-	std::string mut;
-	int resi;
-} MutInt;
-
-static bool resi_less(const MutInt &a, const MutInt &b)
-{
-	return a.resi < b.resi;
 }
 
 void Fasta::sortMutations()

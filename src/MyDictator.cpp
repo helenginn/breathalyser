@@ -19,6 +19,7 @@
 #include "Main.h"
 #include "MyDictator.h"
 #include "FastaMaster.h"
+#include "Fasta.h"
 #include "LoadStructure.h"
 #include "LoadFastas.h"
 #include <iostream>
@@ -92,6 +93,10 @@ bool MyDictator::processRequest(std::string first, std::string last)
 		_main->fMaster()->loadMetadata(last);
 		_main->makeSequenceMenu();
 	}
+	if (first == "justify")
+	{
+		Fasta::setJustify(true);
+	}
 	if (first == "order-by")
 	{
 		_main->fMaster()->reorderBy(last);
@@ -106,6 +111,7 @@ bool MyDictator::processRequest(std::string first, std::string last)
 	}
 	if (first == "require-mutation")
 	{
+		_main->fMaster()->setTopAsCurrent();
 		_main->fMaster()->requireMutation(last);
 	}
 	if (first == "quit")

@@ -28,6 +28,18 @@
 class FastaGroup;
 
 typedef std::map<int, int> IntMap;
+typedef std::map<std::string, std::string> KeyValue;
+
+typedef struct
+{
+	std::string mut;
+	int resi;
+} MutInt;
+
+static inline bool resi_less(const MutInt &a, const MutInt &b)
+{
+	return a.resi < b.resi;
+}
 
 class Fasta : public QObject, public QTreeWidgetItem
 {
@@ -55,6 +67,11 @@ public:
 	std::string result()
 	{
 		return _result;
+	}
+	
+	static void setJustify(bool justify)
+	{
+		_justify = justify;
 	}
 	
 	unsigned char letter(int i);
@@ -104,6 +121,7 @@ public:
 	std::string roughCompare(std::string seq, int minRes);
 	void loadMutations(std::string muts, std::string ref);
 
+	void writeAlignment(std::ofstream &file);
 	void leftJustifyDeletions();
 
 	void giveMenu(QMenu *m, FastaGroup *g);
@@ -129,6 +147,8 @@ private:
 
 	bool _compared;
 	bool _problematic;
+	static bool _justify;
+
 	int _orf;
 	int _offset;
 	int _stop;
@@ -137,6 +157,10 @@ private:
 	std::string _result;
 	std::string _ref;
 	std::string _lastValue;
+	
+	std::string _left;
+	std::string _align;
+	std::string _right;
 	
 	std::vector<std::string> _mutations;
 	IntMap _meToRef;

@@ -19,13 +19,36 @@
 #ifndef __sequins__sequenceview__
 #define __sequins__sequenceview__
 
-#include <QWidget.h>
+#include <QMainWindow>
 
-class SequenceView : public QWidget
+class FastaMaster;
+class FastaGroup;
+class QBoxLayout;
+class QLabel;
+class Fasta;
+class Main;
+
+class SequenceView : public QMainWindow
 {
+Q_OBJECT
 public:
-	SequenceView(QWidget *parent);
+	SequenceView(QWidget *parent, FastaMaster *m);
 
-}
+	void setMain(Main *main)
+	{
+		_main = main;
+	}
+	
+	void populate(Fasta *f);
+	void populate(FastaGroup *g);
+private:
+	QLabel *addToLayout(QBoxLayout *box, std::string left, std::string right);
+	QBoxLayout *setupWindow();
+
+	FastaMaster *_master;
+	Fasta *_fasta;
+	FastaGroup *_group;
+	Main *_main;
+};
 
 #endif

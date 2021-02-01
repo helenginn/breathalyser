@@ -26,12 +26,14 @@ class MyDictator;
 class DiffDisplay;
 class CoupleDisplay;
 class SlidingWindow;
+class CurveView;
 class QTabWidget;
 class QMenu;
 class Ensemble;
 class Fasta;
 class FastaMaster;
 class StructureView;
+class SequenceView;
 
 class Main : public QMainWindow
 {
@@ -83,12 +85,13 @@ public slots:
 	void loadMetadata();
 	void mutationWindow();
 	void writeMutations();
-	void prepareSlidingWindow();
 	void loadStructures();
 	void makeDifference();
-	void setChosenAsReference();
+	void tabChanged(int i);
 	void clickedStructure();
 	void clickedDifference();
+	void setChosenAsReference();
+	void prepareSlidingWindow();
 	void fastaMenu(const QPoint &p);
 	void structureMenu(const QPoint &p);
 protected:
@@ -101,7 +104,9 @@ private:
 	QTabWidget *_tabs;
 	StructureView *_view;
 	StructureView *_couple;
+	SequenceView *_seqView;
 	CoupleDisplay *_coupleDisplay;
+	CurveView *_curveView;
 	DiffDisplay *_diff;
 	MyDictator *_dictator;
 	QMenu *_seqMenu;
