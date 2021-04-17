@@ -71,7 +71,7 @@ executable('splitseq', gen_src, moc_files,
 'src/SlidingWindow.cpp', 
 'src/StructureView.cpp', 
 'src/WidgetFasta.cpp', 
-'src/main.cpp', 
+'src/_main.cpp', 
 cpp_args: ['-std=c++11'], 
 dependencies : [ helencore_dep, helen3d_dep, qt5_dep, dep_gl, png_dep, dep_vag, dep_vgeom, dep_ccp4, dep_c4x, boost_dep, sqlitedep ], install: true)
 
