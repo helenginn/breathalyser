@@ -21,18 +21,24 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QChartView>
+using namespace QtCharts;
+
 #include <iostream>
 #include <fstream>
 
 #include <h3dsrc/Dialogue.h>
 #include <h3dsrc/CurveView.h>
+#include <hcsrc/FileReader.h>
 
 #include "SlidingWindow.h"
 #include "FastaMaster.h"
 #include "FastaGroup.h"
+#include "Fetch.h"
 #include "DiffDisplay.h"
 #include "CoupleDisplay.h"
 #include "Difference.h"
+#include "Database.h"
 #include "Main.h"
 #include "MyDictator.h"
 #include "LoadStructure.h"
@@ -45,6 +51,7 @@
 
 Main::Main(QWidget *parent) : QMainWindow(parent)
 {
+	_db = NULL;
 	setGeometry(0, 0, 1300, 900);
 	
 	_ref = NULL;
@@ -99,9 +106,10 @@ Main::Main(QWidget *parent) : QMainWindow(parent)
 	_seqView->setMain(this);
 	_tabs->addTab(_seqView, "Sequence");
 
-	_curveView = new CurveView(NULL);
-	_fMaster->setCurveView(_curveView);
-	_tabs->addTab(_curveView, "Graphs");
+	_chartView = new QChartView(this);
+	_chartView->setRenderHint(QPainter::Antialiasing);
+	_fMaster->setChartView(_chartView);
+	_tabs->addTab(_chartView, "Graphs");
 
 	_diff = new DiffDisplay(NULL, NULL);
 	_diff->setMain(this);
@@ -148,9 +156,12 @@ void Main::makeMenu()
 
 	QMenu *structures = menuBar()->addMenu(tr("&Structure"));
 
-	act = structures->addAction(tr("&Require mutation"));
+	act = structures->addAction(tr("&Require mutation..."));
 	connect(act, &QAction::triggered, this, 
 	        &Main::mutationWindow);
+	act = structures->addAction(tr("&Scan mutations..."));
+	connect(act, &QAction::triggered, this, 
+	        &Main::scanMutation);
 	act = structures->addAction(tr("&Highlight mutations"));
 	connect(act, &QAction::triggered, _fMaster, 
 	        &FastaMaster::highlightMutations);
@@ -159,8 +170,18 @@ void Main::makeMenu()
 	        &FastaMaster::clearMutations);
 	act = structures->addAction(tr("&Generate sliding window"));
 	connect(act, &QAction::triggered, this, &Main::prepareSlidingWindow);
+	act = structures->addAction(tr("Layered screenshot"));
+	connect(act, &QAction::triggered, this, &Main::layeredScreenshot);
 	
 	makeSequenceMenu();
+}
+
+void Main::scanMutation()
+{
+	MutationWindow *w = new MutationWindow(NULL);
+	w->setScan(true);
+	w->setMain(this);
+	w->show();
 }
 
 void Main::mutationWindow()
@@ -277,6 +298,18 @@ void Main::makeSequenceMenu()
 	}
 
 	_fMaster->makeMenu(_seqMenu);
+
+	QAction *act = _seqMenu->addAction(tr("&Update database"));
+	connect(act, &QAction::triggered, this, &Main::updateDatabase);
+
+	QAction *act2 = _seqMenu->addAction(tr("&Fetch from database..."));
+	connect(act2, &QAction::triggered, this, &Main::getFromDatabase);
+	
+	if (!file_exists("sequences.db"))
+	{
+		act->setDisabled(true);
+		act2->setDisabled(true);
+	}
 }
 
 void Main::receiveSequence(Fasta *f)
@@ -444,11 +477,9 @@ void Main::fastaMenu(const QPoint &p)
 	QMenu *m = new QMenu();
 	QPoint pos = centralWidget()->mapToGlobal(p);
 	
-	if (_fMaster->selectedItems().size() > 1)
+	if (_fMaster->selectedItems().size() >= 1)
 	{
 		_fMaster->makeGroupMenu(m);
-		m->exec(pos);
-		return;
 	}
 
 	FastaGroup *group = _fMaster->selectedGroup();
@@ -469,5 +500,48 @@ void Main::fastaMenu(const QPoint &p)
 
 void Main::tabChanged(int i)
 {
+
+}
+
+void Main::updateDatabase()
+{
+	if (!file_exists("sequences.db"))
+	{
+		std::cout << "Warning! No database. Skipping" << std::endl;
+		return;
+	}
+
+	if (_db == NULL)
+	{
+		_db = new Database("sequences.db");
+	}
+
+	_fMaster->loadToDatabase(_db);
+}
+
+void Main::getFromDatabase()
+{
+	if (_db == NULL)
+	{
+		_db = new Database("sequences.db");
+	}
+
+	Fetch *fetch = new Fetch(NULL);
+	fetch->setDatabase(_db);
+
+	fetch->show();
+}
+
+void Main::layeredScreenshot()
+{
+	std::string filename = openDialogue(this, "Choose layered screenshot", 
+	                                    "Image file", true);
+	
+	if (filename.length() == 0)
+	{
+		return;
+	}
+	
+	_view->screenshot(filename);
 
 }

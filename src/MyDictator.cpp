@@ -114,6 +114,10 @@ bool MyDictator::processRequest(std::string first, std::string last)
 		_main->fMaster()->setTopAsCurrent();
 		_main->fMaster()->requireMutation(last);
 	}
+	if (first == "update-database")
+	{
+		_main->updateDatabase();
+	}
 	if (first == "quit")
 	{
 		exit(0);

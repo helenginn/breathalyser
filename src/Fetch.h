@@ -1,4 +1,4 @@
-// breathalyser
+// splitseq
 // Copyright (C) 2019 Helen Ginn
 // 
 // This program is free software: you can redistribute it and/or modify
@@ -16,44 +16,34 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__structureview__
-#define __breathalyser__structureview__
+#ifndef __splitseq__Fetch__
+#define __splitseq__Fetch__
 
-#include <QObject>
-#include <h3dsrc/SlipGL.h>
+#include <QMainWindow>
+#include "Database.h"
 
-class Main;
-class Ensemble;
-class Text;
-
-class StructureView : public SlipGL
+class Fetch : public QMainWindow
 {
+Q_OBJECT
 public:
-	StructureView(QWidget *parent);
-	void addEnsemble(Ensemble *e);
-	
-	void setText(Text *text);
-	void addLabel(std::string string);
-	
-	void setMain(Main *main)
+	Fetch(QWidget *parent);
+
+	void setDatabase(Database *db)
 	{
-		_main = main;
+		_db = db;
+		populate();
 	}
 
-	void screenshot(std::string filename);
-protected:
-	void makeMutationMenu(QPoint &p);
-	void clickMouse(double x, double y);
+	void populate();
 
-	virtual void initializeGL();
-	virtual void mouseReleaseEvent(QMouseEvent *e);
+private slots:
+	void getSequences();
+	void updateCount();
 private:
-	Main *_main;
-	Ensemble *_ensemble;
-	Text *_text;
-	vec3 _centre;
-	bool _centreSet;
+	void processResults(std::vector<SeqResult> results);
+	std::string makeQuery(bool how_many);
 
+	Database *_db;
 };
 
 #endif

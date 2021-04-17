@@ -23,6 +23,7 @@
 #include <map>
 #include <vector>
 
+#include "Database.h"
 #include <QTreeWidgetItem>
 
 class FastaGroup;
@@ -47,8 +48,29 @@ Q_OBJECT
 public:
 	Fasta(std::string name);
 	
+	void setSource(std::string source)
+	{
+		_source = source;
+	}
+	
+	std::string source()
+	{
+		return _source;
+	}
+	
+	std::string country()
+	{
+		return _country;
+	}
+	
+	void figureOutFromName();
+	
 	void setSequence(std::string seq, bool protein);
 	void description();
+	
+	void fetchValueForTitle(std::string title);
+	
+	void clearMutations();
 
 	bool findNextORF();
 	bool findNextATG();
@@ -104,6 +126,15 @@ public:
 	{
 		return _problematic;
 	}
+	
+	bool isReference()
+	{
+		return _isRef;
+	}
+
+	std::string selectQuery();
+	std::string insertQuery();
+	std::string updateQuery();
 
 	void carefulCompareWithFasta(Fasta *f);
 	void carefulCompareWithString(std::string seq2);
@@ -135,18 +166,26 @@ public:
 	{
 		return _lastValue;
 	}
+	
+	static Fasta *fastaFromDatabase(SeqResult &r);
 signals:
 	void refreshMutations();
 public slots:
 	void setIsProblematic();
 private:
+	void findGlycosylations();
+	void removeDuplicateGlycosylations(Fasta *f);
+	void decrementResidue(std::string &m, int go_back);
 	void refreshToolTips();
 	void organiseMap();
 	std::string deletionSequence(int start, int end, int go_back);
 	void nudgeMap(int start, int dir);
+	
+	void setCountry(std::string country);
 
 	bool _compared;
 	bool _problematic;
+	bool _isRef;
 	static bool _justify;
 
 	int _orf;
@@ -155,7 +194,13 @@ private:
 	std::string _name;
 	std::string _seq;
 	std::string _result;
+
+	/* reference sequence */
 	std::string _ref;
+
+	std::string _source;
+	std::string _country;
+
 	std::string _lastValue;
 	
 	std::string _left;

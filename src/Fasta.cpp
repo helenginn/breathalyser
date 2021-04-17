@@ -18,16 +18,18 @@
 
 #include "Fasta.h"
 #include "FastaGroup.h"
+#include "FastaMaster.h"
 
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <QMenu>
 #include <hcsrc/Blast.h>
 #include <hcsrc/FileReader.h>
 
-bool Fasta::_justify = false;
+bool Fasta::_justify = true;
 
 inline bool isAddition(std::string m)
 {
@@ -51,13 +53,14 @@ inline bool isResidue(std::string m, int i)
 	return mut == i;
 }
 
-inline void decrementResidue(std::string &m, int go_back)
+void Fasta::decrementResidue(std::string &m, int go_back)
 {
-	unsigned char orig = m[0];
+//	unsigned char orig = m[0];
 	int mut = atoi(&m.c_str()[1]);
 	unsigned char last = m.back();
 	std::string new_mut;
-	new_mut += orig;
+	unsigned char replacement = _ref[mut - go_back];
+	new_mut += replacement;
 	new_mut += i_to_str(mut - go_back);
 	new_mut += last;
 	m = new_mut;
@@ -65,6 +68,7 @@ inline void decrementResidue(std::string &m, int go_back)
 
 Fasta::Fasta(std::string name)
 {
+	_isRef = false;
 	_problematic = false;
 	_compared = false;
 	_name = name;
@@ -353,16 +357,21 @@ std::string Fasta::roughCompare(std::string ref, int minRes)
 		return _result;
 	}
 
+	int count = 0;
 	while (findNextORF())
 	{
+		count++;
 		std::string seq = generateSequence();
 		
 		if (roughlyAlign(seq, ref, minRes))
 		{
+			std::cout << "After trying " << count << " ORFs, "
+			" length " << seq.length() <<  " nt..." << std::endl;
 			return seq;
 		}
 	}
 
+	std::cout << "Did not find" << std::endl;
 	return "";
 }
 
@@ -387,25 +396,130 @@ void Fasta::addMutation(char fromWhat, int mut, char towhat)
 	_mutations.push_back(str);
 }
 
+void Fasta::clearMutations()
+{
+	_mutations.clear();
+	_compared = false;
+}
+
 void Fasta::carefulCompareWithFasta(Fasta *f)
 {
 	if (!hasResult() && !f->hasResult())
 	{
 		return;
 	}
+	
+	if (f == this)
+	{
+		_isRef = true;
+		_ref = _result;
+		_offset = 0;
+		organiseMap();
+		findGlycosylations();
+		return;
+	}
 
 	carefulCompareWithString(f->result());
+	organiseMap();
+	findGlycosylations();
+	removeDuplicateGlycosylations(f);
+
+	for (size_t j = 0; j < mutationCount(); j++)
+	{
+		if (mutation(j).back() == '>' || mutation(j).back() == '<')
+		{
+			std::cout << name() << " " << mutation(j) << std::endl;
+		}
+	}
+}
+
+void Fasta::removeDuplicateGlycosylations(Fasta *f)
+{
+	for (size_t j = 0; j < f->mutationCount(); j++)
+	{
+		std::string refMut = f->mutation(j);
+		bool found = false;
+		for (size_t i = 0; i < mutationCount(); i++)
+		{
+			std::string myMut = mutation(i);
+			
+			if (myMut.back() == '<')
+			{
+				continue;
+			}
+
+			if (myMut == refMut)
+			{
+				found = true;
+				_mutations.erase(_mutations.begin() + i);
+				break;
+			}
+		}
+		
+		if (!found && refMut.back() == '>')
+		{
+			refMut.back() = '<';
+			_mutations.push_back(refMut);
+		}
+	}
+
 }
 
 void Fasta::writeAlignment(std::ofstream &file)
 {
 	file << ">" << name() << std::endl;
-	/*
 	file << _left << std::endl;
 	file << _align << std::endl;
 	file << _right << std::endl;
 	file << std::endl;
-	*/
+}
+
+bool trio_can_glycosylate(std::string trio)
+{
+	bool ok = true;
+	
+	if (trio[0] != 'N' || trio[1] == 'P')
+	{
+		ok = false;
+	}
+	if (trio[2] != 'S' && trio[2] != 'T')
+	{
+		ok = false;
+	}
+	
+	return ok;
+}
+
+void Fasta::findGlycosylations()
+{
+	return;
+	for (size_t mut = 0; mut < _ref.length() - 3; mut++)
+	{
+		size_t i = _refToMe[mut];
+		std::string trio = "   ";
+		
+		if (i < _result.length())
+		{
+			trio = _result.substr(i, 3);
+		}
+		
+		/* if we have white spaces, we have to make something compatible */
+		if (!_isRef && trio.find(' ') != std::string::npos)
+		{
+			std::string orig = _ref.substr(mut, 3);
+
+			if (trio_can_glycosylate(orig))
+			{
+				if (trio[0] == ' ') trio[0] = 'N';
+				if (trio[2] == ' ') trio[2] = 'T';
+			}
+		}
+
+		if (trio_can_glycosylate(trio))
+		{
+			addMutation('N', mut, '>');
+		}
+	}
 }
 
 void Fasta::carefulCompareWithString(std::string seq2)
@@ -420,12 +534,11 @@ void Fasta::carefulCompareWithString(std::string seq2)
 	}
 
 	_ref = seq2;
-	Alignment ala, alb;
-	std::string fake = "fake";
-	setup_alignment(&ala, fake);
-	setup_alignment(&alb, fake);
+
 	int muts, dels;
-	srand(1);
+	Alignment ala, alb;
+	setup_alignment(&ala, "");
+	setup_alignment(&alb, "");
 	compare_sequences_and_alignments(seq1, seq2, &muts, &dels, ala, alb, 2);
 	tidy_alignments(ala, alb);
 
@@ -440,9 +553,16 @@ void Fasta::carefulCompareWithString(std::string seq2)
 	_align = ssalign.str();
 	_right = ssright.str();
 	
+	/*
+	std::cout << _left << std::endl;
+	std::cout << _align << std::endl;
+	std::cout << _right << std::endl;
+	*/
+	
 	int running = 0;
 	int offset = 0;
 	int plus = 0;
+	bool ending = false;
 
 	for (size_t i = 0; i < _align.size(); i++)
 	{
@@ -465,7 +585,7 @@ void Fasta::carefulCompareWithString(std::string seq2)
 			continue;
 		}
 		
-		if (_align[i] == '+')
+		if (_align[i] == '+' && !ending)
 		{
 			addMutation(_left[i], indices[i] + offset, '+');
 			running--;
@@ -478,6 +598,11 @@ void Fasta::carefulCompareWithString(std::string seq2)
 			running++;
 		}
 		
+		if (i >= _align.size() - 10)
+		{
+			ending = true;
+		}
+		
 		if (plus > 10)
 		{
 			_problematic = true;
@@ -487,6 +612,8 @@ void Fasta::carefulCompareWithString(std::string seq2)
 	leftJustifyDeletions();
 	
 	_compared = true;
+	
+	FastaMaster::master()->addValue(this, "mutations", mutationSummary());
 }
 
 void Fasta::leftJustifyDeletions()
@@ -495,6 +622,7 @@ void Fasta::leftJustifyDeletions()
 	{
 		return;
 	}
+
 	sortMutations();
 	
 	for (size_t i = 0; i < mutationCount(); i++)
@@ -507,16 +635,16 @@ void Fasta::leftJustifyDeletions()
 			continue;
 		}
 		
-		int end = start;
-		int count = 0;
+		int end = start + 1;
+		int count = 1;
 
 		for (size_t j = i + 1; j < mutationCount(); j++)
 		{
-			count++; end++;
 			if (!isResidue(mutation(j), end))
 			{
 				break;
 			}
+			count++; end++;
 		}
 		
 		if (start == _offset)
@@ -553,13 +681,11 @@ void Fasta::leftJustifyDeletions()
 				break;
 			}
 
-			if (comparison != back_one)
+			if (comparison.length() != back_one.length() ||
+			    comparison != back_one)
 			{
 				break;
 			}
-//			std::cout << m << " " << comparison << " " << back_one << std::endl;
-//				exit(0);
-
 		}
 
 		go_back--;
@@ -776,4 +902,130 @@ bool Fasta::hasMutation(std::string mut)
 	              != _mutations.end());
 	
 	return found;
+}
+
+std::string Fasta::selectQuery()
+{
+	std::string me;
+	me = "SELECT * FROM sequences WHERE name = '" + name() + "';";
+	return me;
+}
+
+std::string Fasta::updateQuery()
+{
+	std::string me;
+
+	me = "UPDATE sequences ";
+	me += "SET ";
+	me += "source = '" + _source + "', ";
+	me += "country = '" + _country + "', ";
+	me += "sample_date = '";
+	me += FastaMaster::master()->valueForKey(this, "sample_date") + "', "; 
+	me += "added_date = DATE('now'), ";
+	me += "protein_sequence = '" + result() + "' ";
+	
+	std::string muts = mutationSummary();
+	
+	if (hasCompared())
+	{
+		me += ", mutations = '" + mutationSummary() + "' ";
+	}
+
+	me += "WHERE name = '" + name() + "'; ";
+
+	return me;
+}
+
+std::string Fasta::insertQuery()
+{
+	std::string me;
+	me = "INSERT OR IGNORE INTO sequences (name) VALUES ('" + name() + "');";
+
+	/*
+	me = "INSERT INTO sequences (";
+	me += "name, ";
+	me += "source, ";
+	me += "country, ";
+	me += "sample_date, ";
+	me += "added_date, ";
+	me += "protein_sequence, ";
+	me += "mutations";
+	me += ") VALUES (";
+	me += "'" + name() + "', ";
+	me += "'" + source() + "', ";
+	me += "'" + country() + "', ";
+	me += "'" + FastaMaster::master()->valueForKey(this, "sample_date") + "', ";
+	me += "DATE('now'), ";
+	me += "'" + result() + "', ";
+	me += "'" + mutationSummary() + "');";
+	*/
+
+	return me;
+}
+
+void Fasta::setCountry(std::string country)
+{
+	for (size_t i = 0; i < country.size(); i++)
+	{
+		if (country[i] == ' ')
+		{
+			country.erase(country.begin() + i);
+			i--;
+		}
+	}
+	
+	to_lower(country);
+	
+	_country = country;
+}
+
+void Fasta::figureOutFromName()
+{
+	std::string n = name();
+	std::vector<std::string> bits = split(name(), '/');
+	
+	if (_source == "cog" && bits.size() >= 1)
+	{
+		_country = bits[0];
+	}
+	else if (_source == "gisaid" && bits.size() >= 2)
+	{
+		_country = bits[1];
+	}
+	
+	bits = split(name(), '|');
+	
+	if (_source == "gisaid" && bits.size() >= 3)
+	{
+		std::string value = bits[2];
+		FastaMaster::master()->addValue(this, "sample_date", value);
+	}
+}
+
+Fasta *Fasta::fastaFromDatabase(SeqResult &r)
+{
+	Fasta *f = new Fasta(r["name"]);
+	f->setSource(r["source"]);
+	f->setCountry(r["country"]);
+	f->setSequence(r["protein_sequence"], true);
+
+	std::ostringstream str;
+	str << std::setfill('0') << std::setw(7) << r["epi_days"];
+
+	FastaMaster::master()->addValue(f, "sample_date", r["sample_date"]);
+	FastaMaster::master()->addValue(f, "mutations", r["mutations"]);
+	FastaMaster::master()->addValue(f, "epi_days", str.str());
+	
+	if (r["mutations"].length() > 1)
+	{
+		f->loadMutations(r["mutations"], 
+		                 FastaMaster::master()->fasta(0)->result());
+	}
+
+	return f;
+}
+
+void Fasta::fetchValueForTitle(std::string title)
+{
+	_lastValue = FastaMaster::master()->valueForKey(this, title);
 }

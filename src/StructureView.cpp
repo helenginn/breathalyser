@@ -19,6 +19,7 @@
 #include <iostream>
 #include <QMenu>
 #include <h3dsrc/Text.h>
+#include <hcsrc/FileReader.h>
 #include "StructureView.h"
 #include "Ensemble.h"
 #include "Segment.h"
@@ -65,7 +66,7 @@ void StructureView::addLabel(std::string str)
 {
 	Text *text = new Text();
 	text->setProperties(_centre, str, 72, Qt::black,
-	                    0, -300, -20);
+	                    0, -33, -20);
 	text->prepare();
 	setText(text);
 }
@@ -126,4 +127,28 @@ void StructureView::makeMutationMenu(QPoint &p)
 	connect(act, &QAction::triggered, 
 	        this, [=] {_main->fMaster()->requireMutation(inverse);});
 	m->exec(p);
+}
+
+void StructureView::screenshot(std::string filename)
+{
+	std::string zero = getBaseFilenameWithPath(filename) + "_0.";
+	zero += getExtension(filename);
+
+	std::string one = getBaseFilenameWithPath(filename) + "_1.";
+	one += getExtension(filename);
+
+	std::cout << zero << std::endl;
+	std::cout << one << std::endl;
+
+	_ensemble->setMode(0);
+	update();
+	saveImage(zero);
+	_ensemble->setMode(1);
+	update();
+	saveImage(one);
+	_ensemble->setMode(-1);
+	update();
+	saveImage(filename);
+	std::cout << filename << std::endl;
+
 }

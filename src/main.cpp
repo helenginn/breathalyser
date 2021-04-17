@@ -2,7 +2,6 @@
 #include <iostream>
 #include <QApplication>
 #include <QOpenGLContext>
-#include "Screen.h"
 #include "Main.h"
 #include "commit.h"
 
@@ -33,12 +32,11 @@ int main(int argc, char * argv[])
 	QOpenGLContext *global = QOpenGLContext::globalShareContext();
 	global->setShareContext(global);
 	global->create();
-	std::cout << "Main global: " <<  global << std::endl;
 
 	setlocale(LC_NUMERIC, "C");
 	srand(time(NULL));
 	
-	std::cout << "Check version: " << CHECK_VERSION_COMMIT_ID << std::endl;
+	std::cout << "splitseq version: " << CHECK_VERSION_COMMIT_ID << std::endl;
 	
 	Main main(NULL);
 	main.setCommandLineArgs(argc, argv);

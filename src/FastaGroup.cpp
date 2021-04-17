@@ -17,10 +17,12 @@
 // Please email: vagabond @ hginn.co.uk for more details.
 
 #include <algorithm>
+#include <QLineSeries>
+#include <QChart>
+#include <QChartView>
+using namespace QtCharts;
 
 #include "FastaGroup.h"
-#include "Curve.h"
-#include "CurveView.h"
 #include "FastaMaster.h"
 #include "WidgetFasta.h"
 #include "Fasta.h"
@@ -148,6 +150,24 @@ void FastaGroup::highlight()
 	highlightRange(0, 0);
 }
 
+void FastaGroup::highlightOne(Fasta *f)
+{
+	_ensemble->clearBalls();
+	addHighlight(f);
+	_ensemble->makeBalls();
+}
+
+void FastaGroup::addHighlight(Fasta *f)
+{
+	if (!f->hasCompared())
+	{
+		f->carefulCompareWithFasta(fasta(0));
+	}
+
+	_ensemble->processFasta(f, _requirements);
+
+}
+
 void FastaGroup::highlightRange(int start, int end)
 {
 	if (start < 0)
@@ -182,38 +202,27 @@ void FastaGroup::highlightRange(int start, int end)
 	std::cout << "Reference is " << fasta(0)->name() << std::endl;
 	for (size_t j = start; j < (size_t)end; j++)
 	{
-		if (fasta(j) == fasta(0))
-		{
-			continue;
-		}
-		
-		if (!fasta(j)->hasCompared())
-		{
-			fasta(j)->carefulCompareWithFasta(fasta(0));
-
-			count++;
-		}
+		addHighlight(fasta(j));
+		count++;
 
 		if (count > stages + per_stage)
 		{
 			std::cout << "." << std::flush;
 			stages += per_stage;
 		}
-
-		_ensemble->processFasta(fasta(j), _requirements);
 	}
-	
+
 	updateText();
-	
+
 	int seqCount = _ensemble->makeBalls();
 	std::cout << "No. sequences displayed: " << seqCount << std::endl;
 }
 
-void FastaGroup::makeRequirementGroup(std::string reqs)
+FastaGroup *FastaGroup::makeRequirementGroup(std::string reqs)
 {
 	if (fastaCount() <= 1)
 	{
-		return;
+		NULL;
 	}
 
 	FastaGroup *g = _master->selectedGroup();
@@ -254,6 +263,7 @@ void FastaGroup::makeRequirementGroup(std::string reqs)
 
 	_master->setCurrentItem(grp);
 	grp->highlightRange();
+	return grp;
 }
 
 void FastaGroup::clearFastas()
@@ -690,6 +700,17 @@ void FastaGroup::titleLimits(double *min, double *max)
 		}
 
 		double val = atof(str.c_str());
+		
+		if (val < 0)
+		{
+			continue;
+		}
+		
+		if (val != val)
+		{
+			continue;
+		}
+
 		if (*min > val)
 		{
 			*min = val;
@@ -701,6 +722,8 @@ void FastaGroup::titleLimits(double *min, double *max)
 		}
 	}
 	
+	std::cout << text(0).toStdString() << " " << _lastOrdered << " " << *min
+	<< " " << *max << std::endl;
 }
 
 int FastaGroup::numberBetween(double min, double max)
@@ -719,13 +742,23 @@ int FastaGroup::numberBetween(double min, double max)
 	return counts;
 }
 
+void FastaGroup::fetchValues(std::string title)
+{
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		fasta(i)->fetchValueForTitle(title);
+	}
+	
+	_lastOrdered = title;
+}
+
 void FastaGroup::makeCurve(std::vector<FastaGroup *> groups,
                            std::string title, std::string filename)
 {
 	if (filename.length() == 0)
 	{
-		std::cout << "No filename" << std::endl;
-		return;
+//		std::cout << "No filename" << std::endl;
+//		return;
 	}
 	if (groups.size() == 0)
 	{
@@ -735,22 +768,32 @@ void FastaGroup::makeCurve(std::vector<FastaGroup *> groups,
 
 	double min = FLT_MAX;
 	double max = -FLT_MAX;
+
 	for (size_t i = 0; i < groups.size(); i++)
 	{
-		groups[i]->_lastOrdered = title;
+		groups[i]->fetchValues(title);
 		groups[i]->titleLimits(&min, &max);
 	}
 	
-	std::ofstream file;
-	file.open(filename);
-	double step = 3;
-
-	file << title << ", ";
+	std::vector<QLineSeries *> series;
 	for (size_t i = 0; i < groups.size(); i++)
 	{
-		file << groups[i]->shortText() << ", ";
+		series.push_back(new QLineSeries());
 	}
-	file << std::endl;
+	
+//	std::ofstream file;
+//	file.open(filename);
+	double step = 3;
+
+//	file << title << ", ";
+
+	for (size_t i = 0; i < groups.size(); i++)
+	{
+//		file << groups[i]->shortText() << ", ";
+		series[i]->setName(QString::fromStdString(groups[i]->shortText()));
+	}
+
+//	file << std::endl;
 	
 	std::cout << "From " << min << " " << max << std::endl;
 	FastaMaster *m = groups[0]->_master;
@@ -778,7 +821,7 @@ void FastaGroup::makeCurve(std::vector<FastaGroup *> groups,
 			each.push_back(num);
 		}
 		
-		file << d << ", ";
+//		file << d << ", ";
 		for (size_t i = 0; i < groups.size(); i++)
 		{
 			if (groups[i] == m->topGroup())
@@ -788,13 +831,34 @@ void FastaGroup::makeCurve(std::vector<FastaGroup *> groups,
 
 			double prop = each[i];
 			prop /= (double)total;
-			file << prop << ", ";
+//			file << prop << ", ";
+			series[i]->append(d, prop);
 		}
 		
-		file << std::endl;
+//		file << std::endl;
 	}
+//	file.close();
 	
-	file.close();
+	QChart *chart = new QChart();
+//	chart->legend()->hide();
+	chart->setTheme(QChart::ChartThemeHighContrast);
+	chart->setTitle("Fraction of total sequences");
+	for (size_t i = 0; i < groups.size(); i++)
+	{
+		if (groups[i] == m->topGroup())
+		{
+			continue;
+		}
+
+		std::cout << "Adding series " << series[i]->name().toStdString() << std::endl;
+		chart->addSeries(series[i]);
+	}
+
+	chart->createDefaultAxes();
+	
+	QChartView *cv = groups[0]->_master->chartView();
+	cv->setChart(chart);
+	
 }
 
 void FastaGroup::writeAlignments(std::string filename)

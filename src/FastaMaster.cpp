@@ -21,6 +21,7 @@
 #include "WidgetFasta.h"
 #include "FastaMaster.h"
 #include "FastaGroup.h"
+#include "Database.h"
 #include "Ensemble.h"
 #include "Fasta.h"
 
@@ -33,6 +34,8 @@
 
 #include <hcsrc/FileReader.h>
 #include <h3dsrc/Dialogue.h>
+
+FastaMaster *FastaMaster::_master = NULL;
 
 FastaMaster::FastaMaster(QWidget *parent) : QTreeWidget(parent)
 {
@@ -47,8 +50,13 @@ FastaMaster::FastaMaster(QWidget *parent) : QTreeWidget(parent)
 	_req = INT_MAX;
 	_aa = '\0';
 	
+	connect(this, &QTreeWidget::currentItemChanged, this,
+	        &FastaMaster::itemClicked);
+	
 	connect(this, &QTreeWidget::itemClicked, this,
 	        &FastaMaster::itemClicked);
+	
+	_master = this;
 }
 
 void FastaMaster::writeOutMutations(std::string filename, bool all)
@@ -227,6 +235,121 @@ void FastaMaster::loadMetadata(std::string fMetadata)
 	checkForMutations();
 }
 
+void FastaMaster::mutationScan(std::string list)
+{
+	std::vector<std::string> components = split(list, ',');
+	
+	for (size_t i = 0; i < components.size(); i++)
+	{
+		std::vector<std::string> bits = split(components[i], '-');
+		
+		if (bits.size() == 1)
+		{
+			selectedGroup()->makeRequirementGroup(components[i]);
+		}
+
+		if (bits.size() > 1)
+		{
+			if (components.size() == 1)
+			{
+				mutationScan2D(list);
+				return;
+			}
+
+			int start = atoi(bits[0].c_str());
+			int end = atoi(bits[1].c_str());
+
+			for (size_t i = start; i <= end; i++)
+			{
+				std::string str = i_to_str(i);
+				topGroup()->makeRequirementGroup(str);
+			}
+		}
+	}
+}
+
+void FastaMaster::mutationScan2D(std::string list)
+{
+	std::vector<std::string> bits = split(list, '-');
+
+	if (bits.size() == 1)
+	{
+		return;
+	}
+	
+	std::string filename = "tmp.csv";
+	std::ofstream file;
+	file.open(filename);
+
+	if (bits.size() <= 1)
+	{
+		return;
+	}
+
+	int start = atoi(bits[0].c_str());
+	int end = atoi(bits[1].c_str());
+	
+	std::map<int, FastaGroup *> newGrps;
+	double total = 1;
+	double count = 0;
+
+	for (size_t i = start; i <= end; i++)
+	{
+		std::string str = i_to_str(i);
+		FastaGroup *grp = topGroup()->makeRequirementGroup(str);
+
+		if (grp == NULL || grp->fastaCount() <= 1)
+		{
+			continue;
+		}
+		
+		total += (grp->fastaCount() - 1);
+		count++;
+		newGrps[i] = grp;
+	}
+	
+	total /= count * 10;
+
+	for (size_t i = start; i <= end - 1; i++)
+	{
+		for (size_t j = i + 1; j <= end; j++)
+		{
+			std::string second = i_to_str(j);
+			
+			if (newGrps[i] == NULL)
+			{
+				continue;
+			}
+
+			FastaGroup *subgrp = newGrps[i]->makeRequirementGroup(second);
+
+			if (subgrp == NULL || subgrp->fastaCount() <= 1)
+			{
+				continue;
+			}
+
+			std::string zi, zj;
+			std::string in = i_to_str(i);
+			std::string jn = i_to_str(j);
+
+			if (i <= 999)
+			{
+				zi = std::string(3 - in.length(), '0');
+			}
+
+			if (j <= 999)
+			{
+				zj = std::string(3 - jn.length(), '0');
+			}
+
+			file << zi << in << "," << zj << jn << "," << subgrp->fastaCount() / total
+			<< std::endl;
+		}
+	}
+	
+	file.close();
+}
+
 void FastaMaster::requireMutation(std::string reqs)
 {
 	if (selectedGroup() == NULL)
@@ -271,6 +394,12 @@ void FastaMaster::checkForMutations()
 void FastaMaster::clearMutations()
 {
 	_ref->clearBalls();
+	_ref->clearMutations();
+	
+	for (size_t i = 0; i < fastaCount(); i++)
+	{
+		fasta(i)->clearMutations();
+	}
 }
 
 
@@ -340,20 +469,22 @@ void FastaMaster::slidingWindowHighlight(StructureView *view,
 		
 		std::string key = "";
 		
-		if (_lastOrdered.length())
+		std::string lastOrdered = _top->lastOrdered();
+		
+		if (lastOrdered.length())
 		{
-			key = _lastOrdered + "_";
-			std::string value = valueForKey(_fastas[i], _lastOrdered);
+			key = lastOrdered + "_";
+			std::string value = valueForKey(fasta(i), lastOrdered);
 			key += value;
 			
-			if (i + window > _fastas.size())
+			if (i + window > fastaCount())
 			{
 				value += " to end";
 			}
 			else
 			{
 				value += " to ";
-				value += valueForKey(_fastas[i], _lastOrdered);
+				value += valueForKey(fasta(i + window), lastOrdered);
 			}
 
 
@@ -373,19 +504,23 @@ void FastaMaster::slidingWindowHighlight(StructureView *view,
 
 void FastaMaster::clear()
 {
-	clear();
+	_ref->clearBalls();
 
-	for (size_t i = 0; i < _fastas.size(); i++)
+	for (size_t i = 1; i < _fastas.size(); i++)
 	{
 		_top->removeChild(_fastas[i]);
 		delete _fastas[i];
+	}
+	
+	while (topLevelItemCount() > 0)
+	{
+		takeTopLevelItem(0);
 	}
 
 	addTopLevelItem(_top);
 	_top->updateText();
 
 	_fastas.clear();
-	_lastOrdered = "";
 }
 
 
@@ -490,7 +625,7 @@ Fasta *FastaMaster::selectedFasta()
 	return f->fasta();
 }
 
-void FastaMaster::itemClicked(QTreeWidgetItem *item, int column)
+void FastaMaster::itemClicked(QTreeWidgetItem *item)
 {
 	FastaGroup *grp = selectedGroup();
 	if (grp != NULL)
@@ -504,6 +639,11 @@ void FastaMaster::itemClicked(QTreeWidgetItem *item, int column)
 	if (f != NULL && _seqView != NULL)
 	{
 		_seqView->populate(f);
+		
+		if (grp != NULL)
+		{
+			grp->highlightOne(f);
+		}
 	}
 }
 
@@ -520,6 +660,15 @@ bool FastaMaster::fastaHasKey(Fasta *f, std::string key)
 	}
 	
 	return true;
+}
+
+void FastaMaster::addValue(Fasta *f, std::string key, std::string value)
+{
+	_nameKeys[f->name()][key] = value;
+	if (std::find(_titles.begin(), _titles.end(), key) == _titles.end())
+	{
+		_titles.push_back(key);
+	}
 }
 
 std::string FastaMaster::valueForKey(Fasta *f, std::string key)
@@ -544,11 +693,13 @@ bool FastaMaster::isReference(Fasta *f)
 
 void FastaMaster::makeCurves(std::string title)
 {
+	/*
 	std::string filename = openDialogue(this, "Write CSV file", 
 	                                    "Comma separated values (*.csv)", 
 	                                    false);
 
-	makeCurvesForFilename(filename, title);
+	*/
+	makeCurvesForFilename("", title);
 }
 
 void FastaMaster::makeCurvesForFilename(std::string filename, 
@@ -564,3 +715,30 @@ void FastaMaster::setTopAsCurrent()
 	setCurrentItem(_top);
 }
 
+void FastaMaster::loadToDatabase(Database *db)
+{
+	db->openConnection();
+
+	int total = (fastaCount() - 1) / 100;
+	int max_stages = 100;
+	int per_stage = total / max_stages;
+	int stages = 0;
+	int count = 0;
+
+	std::string query;
+	for (size_t i = 1; i < fastaCount(); i++)
+	{
+		Fasta *f = fasta(i);
+		query += f->insertQuery();
+		query += f->updateQuery();
+	}
+
+	db->beginTransaction();
+	db->query(query);
+	db->endTransaction();
+	
+	std::cout << "Updated database" << std::endl;
+
+	db->closeConnection();
+
+}

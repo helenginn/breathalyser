@@ -124,13 +124,22 @@ public:
 	bool processFasta(Fasta *f, std::string requirements = "");
 	bool shouldProcess(Fasta *f, std::string requirements = "");
 	void clearBalls();
+	void clearMutations();
 
 	void minMaxResidues(std::string ch, int *min, int *max);
 	std::string generateSequence(std::string chain, int *minRes = NULL);
 	vec3 centroidForChain(std::string chain);
 	std::string findMatchingChain(std::string ch, Ensemble *other);
 	
+	void setMode(int mode)
+	{
+		_mode = mode;
+	}
+	
 private:
+	void convertToCylinder();
+	void addCircle(vec3 centre, std::vector<vec3> &circle);
+	void addCylinderIndices(size_t num);
 	void processMutation(std::string mutation);
 	std::vector<Segment *> _segments;
 	std::vector<Icosahedron *> _balls;
@@ -147,8 +156,10 @@ private:
 	CrystalPtr _crystal;
 	AtomList _cas;
 
+	int _mode;
 	bool _isReference;
 	std::string _name;
+	std::map<std::string, std::string> _seqs;
 	std::vector<std::string> _chains;
 };
 

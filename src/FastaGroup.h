@@ -75,7 +75,13 @@ public:
 		return _fastas[i];
 	}
 	
+	std::string lastOrdered()
+	{
+		return _lastOrdered;
+	}
+	
 	void giveMenu(QMenu *m);
+	void highlightOne(Fasta *f);
 	void highlightRange(int start = 0, int end = 0);
 	void writeOutFastas(std::string filename);
 	void writeAlignments(std::string filename);
@@ -92,12 +98,13 @@ public:
 	std::string generateText();
 	std::string shortText();
 	std::string countDescription();
+	void fetchValues(std::string title);
 
 	static void makeCurve(std::vector<FastaGroup *> groups,
 	                      std::string title, std::string filename);
 public slots:
 	void split(std::string title, int bins, bool reorder);
-	void makeRequirementGroup(std::string reqs);
+	FastaGroup *makeRequirementGroup(std::string reqs);
 	bool reorderBy(std::string title);
 	void prepareCluster4x();
 	void selectInverse();
@@ -109,6 +116,7 @@ protected:
                               const QModelIndex &index );
 
 private:
+	void addHighlight(Fasta *f);
 	void countMutations();
 	int lostMutations(size_t total);
 	static bool smaller_value(const FastaGroup::FastaValue &v1, 

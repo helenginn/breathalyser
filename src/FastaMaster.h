@@ -26,7 +26,12 @@
 class Fasta;
 class QMenu;
 class Ensemble;
-class CurveView;
+class Database;
+namespace QtCharts{
+	class QChartView;
+}
+using namespace QtCharts;
+
 class FastaGroup;
 class SequenceView;
 class StructureView;
@@ -56,6 +61,9 @@ public:
 	bool fastaHasKey(Fasta *f, std::string key);
 	std::string valueForKey(Fasta *f, std::string key);
 	
+	void loadToDatabase(Database *db);
+	void addValue(Fasta *f, std::string key, std::string value);
+	
 	void setReference(Ensemble *e);
 	
 	Ensemble *getReference()
@@ -78,12 +86,12 @@ public:
 	void makeCurves(std::string title);
 	void makeCurvesForFilename(std::string filename, std::string title);
 	
-	CurveView *curveView()
+	QChartView *chartView()
 	{
 		return _cView;
 	}
 	
-	void setCurveView(CurveView *cView)
+	void setChartView(QChartView *cView)
 	{
 		_cView = cView;
 	}
@@ -119,13 +127,20 @@ public:
 	{
 		_seqView = view;
 	}
+	
+	static FastaMaster *master()
+	{
+		return _master;
+	}
 public slots:
 	void requireMutation(std::string reqs);
+	void mutationScan(std::string reqs);
+	void mutationScan2D(std::string list);
 	void highlightMutations();
 	void clearMutations();
 	void clear();
 protected:
-	virtual void itemClicked(QTreeWidgetItem *item, int column);
+	virtual void itemClicked(QTreeWidgetItem *item);
 
 private:
 
@@ -139,13 +154,13 @@ private:
 	std::vector<std::string> _titles;
 	std::vector<Fasta *> _fastas;
 	std::vector<Fasta *> _subfastas;
-	std::string _lastOrdered;
 	std::string _requirements;
 	
+	static FastaMaster *_master;
 	FastaGroup *_top;
 	SequenceView *_seqView;
 	
-	CurveView *_cView;
+	QChartView *_cView;
 
 //typedef std::map<Fasta *, KeyValue> FastaKeys;
 //typedef std::map<std::string, std::string> KeyValue;

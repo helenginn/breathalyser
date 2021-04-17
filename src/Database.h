@@ -1,4 +1,4 @@
-// breathalyser
+// splitseq
 // Copyright (C) 2019 Helen Ginn
 // 
 // This program is free software: you can redistribute it and/or modify
@@ -16,43 +16,44 @@
 // 
 // Please email: vagabond @ hginn.co.uk for more details.
 
-#ifndef __breathalyser__structureview__
-#define __breathalyser__structureview__
+#ifndef __Database__Database__
+#define __Database__Database__
 
-#include <QObject>
-#include <h3dsrc/SlipGL.h>
+#include <string>
+#include <map>
+#include <vector>
 
-class Main;
-class Ensemble;
-class Text;
+typedef struct sqlite3 sqlite3;
+typedef struct std::map<std::string, std::string> SeqResult;
 
-class StructureView : public SlipGL
+class Fasta;
+
+class Database
 {
 public:
-	StructureView(QWidget *parent);
-	void addEnsemble(Ensemble *e);
+	Database(std::string filename);
+
+	int openConnection();
+	void closeConnection();
 	
-	void setText(Text *text);
-	void addLabel(std::string string);
+	void beginTransaction();
+	void endTransaction();
+
+	void importFasta(Fasta *f, bool overwrite = true);
+	std::vector<std::string> countryList();
+
+	void query(std::string query);
 	
-	void setMain(Main *main)
+	const std::vector<SeqResult> &results()
 	{
-		_main = main;
+		return _results;
 	}
-
-	void screenshot(std::string filename);
-protected:
-	void makeMutationMenu(QPoint &p);
-	void clickMouse(double x, double y);
-
-	virtual void initializeGL();
-	virtual void mouseReleaseEvent(QMouseEvent *e);
 private:
-	Main *_main;
-	Ensemble *_ensemble;
-	Text *_text;
-	vec3 _centre;
-	bool _centreSet;
+	static int callback(void *nu, int argc, char **argv, char **col_names);
+
+	sqlite3 *_db;
+	std::string _filename;
+	static std::vector<SeqResult> _results;
 
 };
 

@@ -142,6 +142,18 @@ void LoadFastas::loadSequence(std::string filename, int start, int end,
 	std::string results = get_file_contents(filename);
 	std::vector<std::string> lines = split(results, '\n');
 	
+	std::string src = "unknown";
+	std::string base = getBaseFilename(filename);
+	
+	if (base.rfind("cog", 0) != std::string::npos)
+	{
+		src = "cog";
+	}
+	else if (base.rfind("gisaid", 0) != std::string::npos)
+	{
+		src = "gisaid";
+	}
+	
 	std::cout << "Focus: " << start << " " << end << std::endl;
 	int count = 0;
 	
@@ -186,6 +198,8 @@ void LoadFastas::loadSequence(std::string filename, int start, int end,
 		
 		count++;
 		Fasta *f = new Fasta(name);
+		f->setSource(src);
+		f->figureOutFromName();
 		std::cout << count << ": Found " << name << std::endl;
 		f->setSequence(seq, isProtein);
 		

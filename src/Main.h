@@ -22,18 +22,24 @@
 #include <QMainWindow>
 #include <QTreeWidget>
 
+namespace QtCharts{
+	class QChartView;
+}
+using namespace QtCharts;
+
 class MyDictator;
+class Database;
 class DiffDisplay;
 class CoupleDisplay;
 class SlidingWindow;
 class CurveView;
 class QTabWidget;
-class QMenu;
 class Ensemble;
 class Fasta;
 class FastaMaster;
 class StructureView;
 class SequenceView;
+class QMenu;
 
 class Main : public QMainWindow
 {
@@ -83,13 +89,17 @@ public slots:
 	void writeFastas();
 	void writeSubset();
 	void loadMetadata();
+	void scanMutation();
 	void mutationWindow();
 	void writeMutations();
 	void loadStructures();
 	void makeDifference();
+	void updateDatabase();
+	void getFromDatabase();
 	void tabChanged(int i);
 	void clickedStructure();
 	void clickedDifference();
+	void layeredScreenshot();
 	void setChosenAsReference();
 	void prepareSlidingWindow();
 	void fastaMenu(const QPoint &p);
@@ -106,6 +116,7 @@ private:
 	StructureView *_couple;
 	SequenceView *_seqView;
 	CoupleDisplay *_coupleDisplay;
+	QChartView *_chartView;
 	CurveView *_curveView;
 	DiffDisplay *_diff;
 	MyDictator *_dictator;
@@ -113,6 +124,7 @@ private:
 	
 	Ensemble *_ref;
 	FastaMaster *_fMaster;
+	Database *_db;
 	std::vector<std::string> _args;
 };
 

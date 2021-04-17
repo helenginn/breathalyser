@@ -38,10 +38,13 @@ SlipObject()
 {
 	_crystal = c;
 
+	_mode = -1;
 	_selected = NULL;
 	_renderType = GL_LINES;
 	_isReference = false;
 	_fastaCount = 0;
+	_vString = Structure_vsh();
+	_fString = Structure_fsh();
 	findChains();
 	this->SlipObject::setName("Ensemble");
 }
@@ -81,6 +84,11 @@ vec3 Ensemble::centroidForChain(std::string chain)
 
 std::string Ensemble::generateSequence(std::string chain, int *minRes)
 {
+	if (_seqs.count(chain) > 0)
+	{
+		return _seqs[chain];
+	}
+
 	std::map<int, std::string> resMap;
 	AtomList atoms = _crystal->findAtoms("CA", INT_MAX, chain);
 	
@@ -130,6 +138,8 @@ std::string Ensemble::generateSequence(std::string chain, int *minRes)
 	{
 		*minRes = min;
 	}
+	
+	_seqs[chain] = seq;
 	
 	return seq;
 }
@@ -234,6 +244,100 @@ vec3 bezier(vec3 p1, vec3 p2, vec3 p3, vec3 p4, double t)
 	return add;
 }
 
+void Ensemble::addCircle(vec3 centre, std::vector<vec3> &circle)
+{
+	for (size_t i = 0; i < circle.size(); i++)
+	{
+		vec3 pos = vec3_add_vec3(centre, circle[i]);
+		addVertex(pos.x, pos.y, pos.z);
+	}
+}
+
+void Ensemble::addCylinderIndices(size_t num)
+{
+	int begin = - num * 2;
+	int half = num;
+
+	for (size_t i = 0; i < num - 1; i++)
+	{
+		addIndex(begin + 0);
+		addIndex(begin + 1);
+		addIndex(begin + half);
+		addIndex(begin + 1);
+		addIndex(begin + half);
+		addIndex(begin + half + 1);
+		begin++;
+
+	}
+
+	int one = num;
+	half -= num * 2 - 1;
+	addIndex(begin + 0);
+	addIndex(begin + half);
+	addIndex(begin + one);
+	addIndex(begin + half);
+	addIndex(begin + one);
+	addIndex(begin + 1);
+}
+
+void Ensemble::convertToCylinder()
+{
+	std::vector<Helen3D::Vertex> orig = _vertices;
+	_vertices.clear();
+	_indices.clear();
+	bool starter = true;
+	const int divisions = 5;
+	vec3 prev_axis = make_vec3(0, 0, 1);
+	vec3 xAxis = make_vec3(1, 0, 0);
+
+	for (size_t i = 0; i < orig.size() - 1; i++)
+	{
+		vec3 v1 = vec_from_pos(orig[i].pos);
+		vec3 v2 = vec_from_pos(orig[i + 1].pos);
+		
+		if (v1.x != v1.x || v2.x != v2.x)
+		{
+			starter = true;
+			continue;
+		}
+		
+		vec3 axis = vec3_subtract_vec3(v2, v1);
+
+		vec3_set_length(&axis, 1);
+		vec3 ave = vec3_add_vec3(axis, prev_axis);
+		vec3_set_length(&ave, 1.);
+		std::vector<vec3> circle;
+
+		double angle = (2 * M_PI) / (double)divisions;
+		mat3x3 rot = mat3x3_unit_vec_rotation(ave, angle);
+		vec3 cross = vec3_cross_vec3(axis, xAxis);
+		vec3_set_length(&cross, 0.2);
+		prev_axis = axis;
+
+		for (size_t i = 0; i < divisions; i++)
+		{
+			circle.push_back(cross);
+			mat3x3_mult_vec(rot, &cross);
+		}
+
+		if (starter)
+		{
+			addCircle(v1, circle);
+		}
+
+		addCircle(v2, circle);
+		
+		addCylinderIndices(circle.size());
+
+		
+		starter = false;
+	}
+	
+	_renderType = GL_TRIANGLES;
+	setColour(0.4, 0.4, 0.4);
+	calculateNormals();
+}
+
 void Ensemble::convertToBezier()
 {
 	std::vector<Helen3D::Vertex> vs = _vertices;
@@ -283,7 +387,7 @@ void Ensemble::convertToBezier()
 		
 		control_points(&p1, p2, p3, &p4);
 		
-		for (double t = 0; t < 1; t += 0.1)
+		for (double t = 0; t <= 0.95; t += 0.1)
 		{
 			if (!sameBefore || t > 0)
 			{
@@ -292,6 +396,16 @@ void Ensemble::convertToBezier()
 			}
 
 			vec3 p = bezier(p1, p2, p3, p4, t);
+			
+			if (p.x != p.x || p.y != p.y || p.z != p.z)
+			{
+				std::cout << "Nan!" << std::endl;
+				std::cout << vec3_desc(p1) << std::endl;
+				std::cout << vec3_desc(p2) << std::endl;
+				std::cout << vec3_desc(p3) << std::endl;
+				std::cout << vec3_desc(p4) << std::endl;
+			}
+
 			addVertex(p, NULL);
 		}
 		
@@ -373,6 +487,7 @@ void Ensemble::repopulate()
 	addCAlpha(nanVec);
 	
 	convertToBezier();
+	convertToCylinder();
 
 	if (parent() != NULL)
 	{
@@ -418,14 +533,20 @@ void Ensemble::render(SlipGL *gl)
 		segment(i)->render(gl);
 	}
 	
-	for (size_t i = 0; i < _balls.size(); i++)
+	if (_mode < 0 || _mode == 0)
 	{
-		_balls[i]->render(gl);
+		for (size_t i = 0; i < _balls.size(); i++)
+		{
+			_balls[i]->render(gl);
+		}
 	}
 	
-	for (size_t i = 0; i < _texts.size(); i++)
+	if (_mode < 0 || _mode == 1)
 	{
-		_texts[i]->render(gl);
+		for (size_t i = 0; i < _texts.size(); i++)
+		{
+			_texts[i]->render(gl);
+		}
 	}
 
 	SlipObject::render(gl);
@@ -517,9 +638,14 @@ bool Ensemble::shouldProcess(Fasta *f, std::string requirements)
 {
 	bool should = true;
 
-	if (f->isProblematic() || !f->hasResult())
+	if (f->isProblematic() || !f->hasResult() || f->isReference())
 	{
 		return false;
+	}
+	
+	if (f->result().find(' ') != std::string::npos)
+	{
+//		return false;
 	}
 	
 	if (requirements.length() > 0)
@@ -553,6 +679,17 @@ bool Ensemble::shouldProcess(Fasta *f, std::string requirements)
 				if (req.substr(0, comp_length) == 
 				    ending.substr(0, comp_length))
 				{
+					if (ending.length() > req.length())
+					{
+						char tmp = ending[req.length()];
+						
+						if (tmp > '0' && tmp <= '9')
+						{
+							/* numerical, stops 47 matching 470 */
+							break;
+						}
+					}
+
 					found = true;
 					break;
 				}
@@ -655,8 +792,8 @@ size_t Ensemble::makeBalls()
 			str += i_to_str(resNum) + aas + ", ";
 			str += f_to_str(pct, 1) + "%";
 			Text *text = new Text();
-			text->setProperties(abs, str, 64, Qt::black,
-			                    0, 2, -10);
+			text->setProperties(abs, str, 120, Qt::black,
+			                    0, 4, 20);
 			text->prepare();
 			_texts.push_back(text);
 			_textMap[_cas[i]] = text;
@@ -664,15 +801,19 @@ size_t Ensemble::makeBalls()
 
 		Icosahedron *ico = new Icosahedron();
 		ico->setPosition(abs);
-		ico->setColour(1, 0.3, 0.3);
+		ico->setColour(1.0, 0.3, 0.3);
 		
 		if (aas[0] == '-')
 		{
-			ico->setColour(0.3, 0.3, 0.3);
+			ico->setColour(0.2, 0.2, 0.2);
 		}
 		else if (aas[0] == '+')
 		{
 			ico->setColour(0.3, 0.3, 1.0);
+		}
+		else if (aas[0] == '>' || aas[0] == '<')
+		{
+			ico->setColour(1, 1.0, 0.3);
 		}
 
 		ico->triangulate();
@@ -704,6 +845,8 @@ void Ensemble::clearBalls()
 	_selected = NULL;
 	_texts.clear();
 	_balls.clear();
+	std::vector<Text *>().swap(_texts);
+	std::vector<Icosahedron *>().swap(_balls);
 	_ballMap.clear();
 	_textMap.clear();
 	_muts.clear();
@@ -746,4 +889,9 @@ std::string Ensemble::selectedMutation()
 	}
 
 	return _ballMap[_selected];
+}
+
+void Ensemble::clearMutations()
+{
+	_muts.clear();
 }

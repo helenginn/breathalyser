@@ -34,6 +34,7 @@ MutationWindow::MutationWindow(QWidget *parent) : QMainWindow(parent)
 	{
 		QHBoxLayout *hbox = new QHBoxLayout();
 		QLabel *l = new QLabel("Require mutation:", window);
+		l->setObjectName("label");
 		hbox->addWidget(l);
 		QLineEdit *e = new QLineEdit(window);
 		_mutLine = e;
@@ -53,6 +54,15 @@ MutationWindow::MutationWindow(QWidget *parent) : QMainWindow(parent)
 
 	resize(400, 0);
 	setCentralWidget(window);
+	_scan = false;
+}
+
+void MutationWindow::setScan(bool sc)
+{
+	_scan = sc;
+	QLabel *l = findChild<QLabel *>("label");
+	l->setText("Mutation scan list");
+
 }
 
 void MutationWindow::run()
@@ -60,7 +70,15 @@ void MutationWindow::run()
 	std::string str = _mutLine->text().toStdString();
 	FastaMaster *master = _main->fMaster();
 	
-	master->requireMutation(str);
+	if (!_scan)
+	{
+		master->requireMutation(str);
+	}
+	else
+	{
+		master->mutationScan(str);
+	}
+
 	hide();
 }
 

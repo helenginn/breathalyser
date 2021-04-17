@@ -37,11 +37,14 @@ public:
 		_main = m;
 	}
 
+	void setScan(bool sc);
+
 public slots:
 	void run();
 private:
 	Main *_main;
 	QLineEdit *_mutLine;
+	bool _scan;
 
 };
 

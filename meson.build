@@ -1,7 +1,7 @@
 project('splitseq', 'cpp', 'c')
 qt5 = import('qt5')
 
-qt5_dep = dependency('qt5', modules: ['Core', 'Gui', 'Widgets'], required : true)
+qt5_dep = dependency('qt5', modules: ['Charts', 'Core', 'Gui', 'Widgets'], required : true)
 dep_gl = dependency('gl', required : true)
 png_dep = dependency('libpng')
 boost_dep = dependency('boost')
@@ -11,6 +11,7 @@ dep_vgeom = dependency('libvgeom', required: false)
 dep_ccp4 = dependency('libccp4')
 dep_c4x = dependency('libcluster4x')
 dep_ica = dependency('libica')
+sqlitedep = dependency('sqlite3')
 helen3d_dep = dependency('helen3d')
 helencore_dep = dependency('helencore')
 
@@ -38,6 +39,7 @@ moc_files = qt5.preprocess(moc_headers : [
 'src/FastaMaster.h', 
 'src/FastaGroup.h', 
 'src/Fasta.h', 
+'src/Fetch.h', 
 'src/Main.h', 
 'src/MutationWindow.h', 
 'src/LoadFastas.h', 
@@ -51,10 +53,12 @@ moc_files = qt5.preprocess(moc_headers : [
 executable('splitseq', gen_src, moc_files,
 'src/Arrow.cpp', 
 'src/CoupleDisplay.cpp', 
+'src/Database.cpp', 
 'src/DiffDisplay.cpp', 
 'src/Difference.cpp', 
 'src/Ensemble.cpp', 
 'src/Fasta.cpp', 
+'src/Fetch.cpp', 
 'src/FastaGroup.cpp', 
 'src/FastaMaster.cpp', 
 'src/LoadFastas.cpp', 
@@ -69,5 +73,5 @@ executable('splitseq', gen_src, moc_files,
 'src/WidgetFasta.cpp', 
 'src/main.cpp', 
 cpp_args: ['-std=c++11'], 
-dependencies : [ helencore_dep, helen3d_dep, qt5_dep, dep_gl, png_dep, dep_vag, dep_vgeom, dep_ccp4, dep_c4x, boost_dep ], install: true)
+dependencies : [ helencore_dep, helen3d_dep, qt5_dep, dep_gl, png_dep, dep_vag, dep_vgeom, dep_ccp4, dep_c4x, boost_dep, sqlitedep ], install: true)
 
